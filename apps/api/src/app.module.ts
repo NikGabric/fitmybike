@@ -8,6 +8,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { validateEnv } from './env';
 import { AuthModule } from './modules/auth/auth.module';
+import { BikesModule } from './modules/bikes/bikes.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { HealthModule } from './modules/health/health.module';
 import { MeasurementDefinitionsModule } from './modules/measurement-definitions/measurement-definitions.module';
@@ -27,6 +28,7 @@ import { MeasurementDefinitionsModule } from './modules/measurement-definitions/
     HealthModule,
     CustomersModule,
     MeasurementDefinitionsModule,
+    BikesModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

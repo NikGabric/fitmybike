@@ -116,6 +116,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/customers/{customerId}/bikes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CustomerBikesController_list"];
+        put?: never;
+        post: operations["CustomerBikesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bikes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BikesController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["BikesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["BikesController_update"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -205,6 +237,54 @@ export interface components {
                 helpText: string | null;
                 sortOrder: number;
             }[];
+        };
+        BikeListDto: {
+            data: {
+                id: string;
+                customerId: string;
+                brand: string | null;
+                model: string | null;
+                sizeLabel: string | null;
+                /** @enum {string} */
+                type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+                notes: string | null;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        CreateBikeDto: {
+            brand?: string | null;
+            model?: string | null;
+            sizeLabel?: string | null;
+            /**
+             * @default ROAD
+             * @enum {string}
+             */
+            type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+            notes?: string | null;
+        };
+        BikeDto: {
+            id: string;
+            customerId: string;
+            brand: string | null;
+            model: string | null;
+            sizeLabel: string | null;
+            /** @enum {string} */
+            type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+            notes: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        UpdateBikeDto: {
+            brand?: string | null;
+            model?: string | null;
+            sizeLabel?: string | null;
+            /**
+             * @default ROAD
+             * @enum {string}
+             */
+            type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+            notes?: string | null;
         };
     };
     responses: never;
@@ -449,6 +529,153 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeasurementDefinitionListDto"];
                 };
+            };
+        };
+    };
+    CustomerBikesController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BikeListDto"];
+                };
+            };
+            /** @description No such customer in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    CustomerBikesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBikeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BikeDto"];
+                };
+            };
+            /** @description No such customer in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BikesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BikeDto"];
+                };
+            };
+            /** @description No such bike in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BikesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bike archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such bike in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BikesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBikeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BikeDto"];
+                };
+            };
+            /** @description No such bike in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

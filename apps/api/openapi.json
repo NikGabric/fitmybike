@@ -284,6 +284,178 @@
           "measurement-definitions"
         ]
       }
+    },
+    "/api/customers/{customerId}/bikes": {
+      "get": {
+        "operationId": "CustomerBikesController_list",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BikeListDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer in this organization"
+          }
+        },
+        "tags": [
+          "bikes"
+        ]
+      },
+      "post": {
+        "operationId": "CustomerBikesController_create",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBikeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BikeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer in this organization"
+          }
+        },
+        "tags": [
+          "bikes"
+        ]
+      }
+    },
+    "/api/bikes/{id}": {
+      "get": {
+        "operationId": "BikesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BikeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such bike in this organization"
+          }
+        },
+        "tags": [
+          "bikes"
+        ]
+      },
+      "patch": {
+        "operationId": "BikesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBikeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BikeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such bike in this organization"
+          }
+        },
+        "tags": [
+          "bikes"
+        ]
+      },
+      "delete": {
+        "operationId": "BikesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Bike archived"
+          },
+          "404": {
+            "description": "No such bike in this organization"
+          }
+        },
+        "tags": [
+          "bikes"
+        ]
+      }
     }
   },
   "info": {
@@ -805,6 +977,197 @@
         "required": [
           "data"
         ]
+      },
+      "BikeListDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "customerId": {
+                  "type": "string"
+                },
+                "brand": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "model": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "sizeLabel": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "ROAD",
+                    "TT",
+                    "GRAVEL",
+                    "MTB",
+                    "OTHER"
+                  ]
+                },
+                "notes": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "customerId",
+                "brand",
+                "model",
+                "sizeLabel",
+                "type",
+                "notes",
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateBikeDto": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "sizeLabel": {
+            "type": "string",
+            "maxLength": 40,
+            "nullable": true
+          },
+          "type": {
+            "default": "ROAD",
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "TT",
+              "GRAVEL",
+              "MTB",
+              "OTHER"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 5000,
+            "nullable": true
+          }
+        }
+      },
+      "BikeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "sizeLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "TT",
+              "GRAVEL",
+              "MTB",
+              "OTHER"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "customerId",
+          "brand",
+          "model",
+          "sizeLabel",
+          "type",
+          "notes",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateBikeDto": {
+        "type": "object",
+        "properties": {
+          "brand": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "sizeLabel": {
+            "type": "string",
+            "maxLength": 40,
+            "nullable": true
+          },
+          "type": {
+            "default": "ROAD",
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "TT",
+              "GRAVEL",
+              "MTB",
+              "OTHER"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 5000,
+            "nullable": true
+          }
+        }
       }
     }
   }

@@ -90,3 +90,21 @@ export async function createCustomer(
     select: { id: true },
   });
 }
+
+export async function createBike(
+  prisma: PrismaClient,
+  org: SeededOrg,
+  customerId: string,
+  overrides: { brand?: string; model?: string } = {},
+): Promise<{ id: string }> {
+  return prisma.bike.create({
+    data: {
+      organizationId: org.organizationId,
+      createdById: org.userId,
+      customerId,
+      brand: overrides.brand ?? 'Test Brand',
+      model: overrides.model ?? 'Test Model',
+    },
+    select: { id: true },
+  });
+}
