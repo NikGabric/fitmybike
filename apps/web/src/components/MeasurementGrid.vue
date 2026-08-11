@@ -58,7 +58,10 @@ watch(
     }
     draft.value = next;
   },
-  { immediate: true, deep: true },
+  // Not deep: both props are computed, so their identity already changes exactly when
+  // the server data behind them does. Deep-watching them re-ran this on every render
+  // and churned the DOM while the fitter was interacting with it.
+  { immediate: true },
 );
 
 let debounce: ReturnType<typeof setTimeout> | undefined;

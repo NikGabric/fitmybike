@@ -76,12 +76,22 @@ const catalog = useQuery({
 });
 
 const currentStep = ref<FitStep>('BODY');
+const hydrated = ref(false);
+
+/**
+ * The server's `currentStep` says where to *resume*; once the wizard is open the
+ * fitter drives it. Adopting it on every query update meant a measurement save —
+ * whose response still carried the previous step — could yank the wizard backwards
+ * mid-navigation, and the next flush would post to the wrong endpoint. Same for the
+ * summary, which would otherwise be overwritten while being typed.
+ */
 watch(
   () => fit.data.value,
   (loaded) => {
-    if (!loaded) return;
+    if (!loaded || hydrated.value) return;
     currentStep.value = loaded.currentStep;
     summary.value = loaded.summary ?? '';
+    hydrated.value = true;
   },
   { immediate: true },
 );
@@ -121,24 +131,36 @@ const values = computed<Record<string, GridValue>>(() => {
   return result;
 });
 
+type MeasurementChange = { key: string; value: number | null };
+
+/**
+ * A save carries its own destination.
+ *
+ * It must not be derived from `currentStep` inside mutationFn: moving between steps
+ * flushes the grid and *then* advances the step, and the mutation body runs after
+ * that — so reading reactive state there posted each step's last save to the next
+ * step's endpoint. The destination is snapshotted synchronously in the emit handler
+ * instead.
+ */
+type SavePayload =
+  | { kind: 'body'; measurements: MeasurementChange[] }
+  | { kind: 'bike'; stage: FitStage; measurements: MeasurementChange[] };
+
 const saveMeasurements = useMutation({
-  mutationFn: (changes: Array<{ key: string; value: number | null }>) => {
-    const current = step.value;
-    if (current?.category === 'BODY') {
-      return unwrap(
-        api.PATCH('/api/fits/{id}/body-measurements', {
-          params: { path: { id: props.id } },
-          body: { measurements: changes } as never,
-        }),
-      );
-    }
-    return unwrap(
-      api.PATCH('/api/fits/{id}/bike-measurements', {
-        params: { path: { id: props.id } },
-        body: { stage: current?.stage as FitStage, measurements: changes } as never,
-      }),
-    );
-  },
+  mutationFn: (payload: SavePayload) =>
+    payload.kind === 'body'
+      ? unwrap(
+          api.PATCH('/api/fits/{id}/body-measurements', {
+            params: { path: { id: props.id } },
+            body: { measurements: payload.measurements } as never,
+          }),
+        )
+      : unwrap(
+          api.PATCH('/api/fits/{id}/bike-measurements', {
+            params: { path: { id: props.id } },
+            body: { stage: payload.stage, measurements: payload.measurements } as never,
+          }),
+        ),
   onSuccess: (updated) => {
     saveErrors.value = {};
     queryClient.setQueryData(['fit', props.id], updated);
@@ -153,6 +175,18 @@ const saveMeasurements = useMutation({
     }
   },
 });
+
+/** Runs synchronously from the grid's emit, while `step` is still the grid's step. */
+function onGridSave(changes: MeasurementChange[]): void {
+  const current = step.value;
+  if (!current?.category) return;
+
+  saveMeasurements.mutate(
+    current.category === 'BODY'
+      ? { kind: 'body', measurements: changes }
+      : { kind: 'bike', stage: current.stage as FitStage, measurements: changes },
+  );
+}
 
 const saveFit = useMutation({
   mutationFn: (body: { currentStep?: FitStep; summary?: string | null }) =>
@@ -174,7 +208,9 @@ async function goTo(next: FitStep): Promise<void> {
   // Flush anything still sitting in the debounce, or moving on loses the last field.
   gridRef.value?.flushNow();
   currentStep.value = next;
-  await saveFit.mutateAsync({ currentStep: next });
+  // Remembering the step is a convenience; failing to record it must not block the
+  // fitter from moving on, and must not surface as an unhandled rejection.
+  await saveFit.mutateAsync({ currentStep: next }).catch(() => undefined);
 }
 
 const back = (): Promise<void> => goTo(STEPS[Math.max(0, stepIndex.value - 1)]!.step);
@@ -296,7 +332,7 @@ const savingLabel = computed(() => {
           :values="values"
           :errors="saveErrors"
           :saving="saveMeasurements.isPending.value"
-          @save="saveMeasurements.mutate($event)"
+          @save="onGridSave"
         />
 
         <!-- Review -->
