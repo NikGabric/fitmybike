@@ -20,6 +20,7 @@
     "db:up": "docker compose -f compose.dev.yaml up -d --wait",
     "db:down": "docker compose -f compose.dev.yaml down",
     "db:migrate": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @fitmybike/api exec prisma migrate deploy",
     "db:reset": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma migrate reset",
     "db:seed": "pnpm --filter @fitmybike/api seed",
     "db:studio": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma studio"
