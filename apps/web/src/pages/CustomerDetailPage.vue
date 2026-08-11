@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query';
 import {
   BIKE_TYPE_LABELS,
@@ -16,6 +16,7 @@ import { api, unwrap } from '@/lib/api';
 
 const props = defineProps<{ id: string }>();
 
+const router = useRouter();
 const queryClient = useQueryClient();
 
 const customer = useQuery({
@@ -42,6 +43,15 @@ const fits = useQuery({
 const removeBike = useMutation({
   mutationFn: (id: string) => unwrap(api.DELETE('/api/bikes/{id}', { params: { path: { id } } })),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bikes'] }),
+});
+
+const startFit = useMutation({
+  mutationFn: (bikeId: string) =>
+    unwrap(api.POST('/api/fits', { body: { customerId: props.id, bikeId, reason: null } })),
+  onSuccess: async (fit) => {
+    await queryClient.invalidateQueries({ queryKey: ['fits'] });
+    await router.push({ name: 'fit', params: { id: fit.id } });
+  },
 });
 
 function confirmRemoveBike(id: string, label: string): void {
@@ -162,6 +172,15 @@ const formatDate = (iso: string): string => dateFormat.format(new Date(iso));
                   {{ BIKE_TYPE_LABELS[bike.type] }}
                 </p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="startFit.isPending.value"
+                :data-testid="`start-fit-${bike.id}`"
+                @click="startFit.mutate(bike.id)"
+              >
+                Start fit
+              </Button>
               <RouterLink
                 :to="{ name: 'bike-edit', params: { id: bike.id } }"
                 :class="buttonVariants({ variant: 'ghost', size: 'sm' })"
@@ -219,7 +238,14 @@ const formatDate = (iso: string): string => dateFormat.format(new Date(iso));
                 :key="fit.id"
                 class="border-b border-border last:border-0"
               >
-                <td class="px-4 py-3 tabular-nums">{{ formatDate(fit.startedAt) }}</td>
+                <td class="px-4 py-3 tabular-nums">
+                  <RouterLink
+                    :to="{ name: 'fit', params: { id: fit.id } }"
+                    class="font-medium hover:underline"
+                  >
+                    {{ formatDate(fit.startedAt) }}
+                  </RouterLink>
+                </td>
                 <td class="px-4 py-3">{{ bikeLabel(fit.bike) }}</td>
                 <td class="px-4 py-3 text-muted-foreground">{{ fit.reason ?? '—' }}</td>
                 <td class="px-4 py-3">

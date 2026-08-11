@@ -47,6 +47,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/BikeFormPage.vue'),
         props: true,
       },
+      {
+        path: 'fits/:id',
+        name: 'fit',
+        component: () => import('@/pages/FitWizardPage.vue'),
+        props: true,
+      },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: { name: 'customers' } },

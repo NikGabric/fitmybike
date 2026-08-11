@@ -10,9 +10,10 @@ import { z } from 'zod';
  * catalog would be silently missing under `pnpm test`.
  *
  * Values are SI integers throughout, per the project-wide rule:
- *   MM         millimetres
- *   DECIDEGREE tenths of a degree — 72.5° is stored as 725
- *   GRAM       grams
+ *   MM             millimetres
+ *   DECIMILLIMETRE tenths of a millimetre — a 172.5mm crank is stored as 1725
+ *   DECIDEGREE     tenths of a degree — 72.5° is stored as 725
+ *   GRAM           grams
  *
  * The unit names what is *stored*, not what is displayed, so there is nothing to
  * remember at a call site. Conversion happens only at the display edge, in units.ts.
@@ -26,7 +27,7 @@ import { z } from 'zod';
 export const measurementCategorySchema = z.enum(['BODY', 'BIKE']);
 export type MeasurementCategory = z.infer<typeof measurementCategorySchema>;
 
-export const measurementUnitSchema = z.enum(['MM', 'DECIDEGREE', 'GRAM']);
+export const measurementUnitSchema = z.enum(['MM', 'DECIMILLIMETRE', 'DECIDEGREE', 'GRAM']);
 export type MeasurementUnit = z.infer<typeof measurementUnitSchema>;
 
 interface MeasurementSeed {
@@ -211,12 +212,14 @@ export const MEASUREMENT_DEFINITIONS = [
     sortOrder: 290,
   },
   {
+    // Tenths of a millimetre: stock cranks come in 172.5 and 177.5, and rounding a
+    // number the customer is handed at the end of a fit would simply be wrong.
     key: 'crank_length',
     label: 'Crank length',
     category: 'BIKE',
-    unit: 'MM',
-    minValue: 150,
-    maxValue: 185,
+    unit: 'DECIMILLIMETRE',
+    minValue: 1500,
+    maxValue: 1850,
     sortOrder: 300,
   },
   {

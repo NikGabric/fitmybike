@@ -311,7 +311,7 @@ export interface components {
                 /** @enum {string} */
                 category: "BODY" | "BIKE";
                 /** @enum {string} */
-                unit: "MM" | "DECIDEGREE" | "GRAM";
+                unit: "MM" | "DECIMILLIMETRE" | "DECIDEGREE" | "GRAM";
                 minValue: number;
                 maxValue: number;
                 helpText: string | null;

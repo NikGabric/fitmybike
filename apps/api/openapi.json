@@ -1276,6 +1276,7 @@
                   "type": "string",
                   "enum": [
                     "MM",
+                    "DECIMILLIMETRE",
                     "DECIDEGREE",
                     "GRAM"
                   ]

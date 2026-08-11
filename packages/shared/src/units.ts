@@ -10,6 +10,7 @@ export const MM_PER_INCH = 25.4;
 export const GRAMS_PER_KG = 1000;
 export const GRAMS_PER_POUND = 453.59237;
 export const DECIDEGREES_PER_DEGREE = 10;
+export const DECIMILLIMETRES_PER_MM = 10;
 
 export type UnitSystem = 'metric' | 'imperial';
 
@@ -58,21 +59,35 @@ export const decidegreesToDegrees = (decidegrees: number): number =>
 export const degreesToDecidegrees = (degrees: number): number =>
   Math.round(degrees * DECIDEGREES_PER_DEGREE);
 
+// --- sub-millimetre lengths ---
+// Cranks and similar parts come in half-millimetre steps, so those measurements are
+// stored in tenths of a millimetre rather than rounded to whole ones.
+export const decimillimetresToMm = (decimillimetres: number): number =>
+  round(decimillimetres / DECIMILLIMETRES_PER_MM, 1);
+export const mmToDecimillimetres = (mm: number): number =>
+  Math.round(mm * DECIMILLIMETRES_PER_MM);
+
 /**
  * A catalog measurement for display, dispatched on its stored unit.
  *
- * Lengths follow `system`; angles are degrees everywhere, because no fitting studio
- * measures saddle tilt in anything else.
+ * Fit measurements read in millimetres, not centimetres: a saddle height is "735mm"
+ * on every fit sheet in every studio. That is why this is separate from
+ * formatHeight, which renders a rider's body height in cm where cm is what people
+ * say. Angles are degrees everywhere.
  */
 export function formatMeasurement(
   value: number | null | undefined,
-  unit: 'MM' | 'DECIDEGREE' | 'GRAM',
+  unit: 'MM' | 'DECIMILLIMETRE' | 'DECIDEGREE' | 'GRAM',
   system: UnitSystem = 'metric',
 ): string {
   if (value == null) return '—';
   switch (unit) {
     case 'MM':
-      return system === 'metric' ? `${mmToCm(value)} cm` : `${mmToInches(value)}"`;
+      return system === 'metric' ? `${value} mm` : `${mmToInches(value)}"`;
+    case 'DECIMILLIMETRE':
+      return system === 'metric'
+        ? `${decimillimetresToMm(value)} mm`
+        : `${mmToInches(value / DECIMILLIMETRES_PER_MM)}"`;
     case 'DECIDEGREE':
       return `${decidegreesToDegrees(value)}°`;
     case 'GRAM':
