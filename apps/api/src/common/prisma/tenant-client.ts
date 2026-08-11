@@ -11,9 +11,7 @@ const TENANT_MODELS = new Set(['Customer', 'Invitation', 'EmailLog']);
 const WHERE_OPERATIONS = new Set([
   'findUnique',
   'findUniqueOrThrow',
-  'findFirst',
   'findFirstOrThrow',
-  'findMany',
   'count',
   'aggregate',
   'groupBy',
