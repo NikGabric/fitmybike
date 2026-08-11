@@ -41,23 +41,25 @@ test('creates, edits and archives a customer', async ({ page }) => {
   await page.getByTestId('heightCm').fill('172.5');
   await page.getByTestId('save').click();
 
-  await expect(page).toHaveURL(/\/customers$/);
-
-  await page.getByTestId('customer-search').fill(lastName);
-  const row = page.locator('tbody tr').filter({ hasText: lastName });
-  await expect(row).toHaveCount(1);
+  // Saving lands on the customer, not back in the list.
+  await expect(page).toHaveURL(/\/customers\/[^/]+$/);
+  await expect(page.getByTestId('customer-name')).toHaveText(`Ivana ${lastName}`);
   // 172.5 cm entered -> stored as 1725 mm -> rendered back as 172.5 cm.
-  await expect(row).toContainText('172.5 cm');
+  await expect(page.getByText('172.5 cm')).toBeVisible();
 
   // --- edit ---
-  await row.getByRole('link', { name: new RegExp(lastName) }).click();
+  await page.getByTestId('edit-customer').click();
   await expect(page.getByTestId('firstName')).toHaveValue('Ivana');
   await page.getByTestId('firstName').fill('Ivana-Maria');
   await page.getByTestId('save').click();
 
-  await expect(page).toHaveURL(/\/customers$/);
+  await expect(page.getByTestId('customer-name')).toHaveText(`Ivana-Maria ${lastName}`);
+
+  await page.goto('/customers');
   await page.getByTestId('customer-search').fill(lastName);
-  await expect(page.locator('tbody tr').filter({ hasText: lastName })).toContainText('Ivana-Maria');
+  const row = page.locator('tbody tr').filter({ hasText: lastName });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('Ivana-Maria');
 
   // --- archive ---
   page.once('dialog', (dialog) => void dialog.accept());
