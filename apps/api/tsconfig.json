@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    // NOT incremental: nest-cli's deleteOutDir wipes dist/ while .tsbuildinfo still
+    // claims those outputs exist, so tsc re-emits only changed files and the build
+    // comes out silently half-empty.
+    "incremental": false,
+    // NestJS DI assigns constructor-injected properties; declaration-site init is not used.
+    "strictPropertyInitialization": false
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts", "prisma.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

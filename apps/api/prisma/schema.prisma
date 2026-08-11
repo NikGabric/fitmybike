@@ -1,0 +1,140 @@
+// Fit My Bike — Phase 0 schema.
+//
+// Every tenant-scoped model carries `organizationId`. Reads and writes go through
+// PrismaService.forOrg(), which injects that filter; see src/common/prisma/.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  FITTER
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Organization {
+  id        String   @id @default(uuid(7))
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  invitations Invitation[]
+  customers   Customer[]
+  emailLogs   EmailLog[]
+
+  @@map("organizations")
+}
+
+/// Email is globally unique: one user belongs to exactly one organization, which
+/// keeps login a single step with no org picker.
+model User {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  email          String    @unique
+  passwordHash   String
+  name           String
+  role           Role      @default(FITTER)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deactivatedAt  DateTime?
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions         Session[]
+  createdCustomers Customer[]   @relation("CustomerCreatedBy")
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model Invitation {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  email          String
+  role           Role      @default(FITTER)
+  tokenHash      String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@map("invitations")
+}
+
+/// Opaque server-side sessions. The cookie holds the raw token; only its hash is
+/// stored, so a database leak does not hand out live sessions.
+model Session {
+  id        String   @id @default(uuid(7))
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  userAgent String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/// Body measurements are stored canonically in SI units (mm, grams) and converted
+/// at the display edge — see packages/shared/src/units.ts.
+model Customer {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  dateOfBirth    DateTime? @db.Date
+  heightMm       Int?
+  weightGrams    Int?
+  notes          String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+
+  @@index([organizationId, deletedAt])
+  @@index([organizationId, lastName, firstName])
+  @@map("customers")
+}
+
+/// Outbox. Unused in Phase 0 — every future send writes a row here with a snapshot
+/// of exactly what the customer received.
+model EmailLog {
+  id             String      @id @default(uuid(7))
+  organizationId String
+  toEmail        String
+  subject        String
+  template       String
+  payload        Json
+  status         EmailStatus @default(PENDING)
+  sentAt         DateTime?
+  error          String?
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("email_logs")
+}
