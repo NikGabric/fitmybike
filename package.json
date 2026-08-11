@@ -11,6 +11,7 @@
     "dev": "pnpm --filter @fitmybike/shared build && concurrently -n shared,api,web -c gray,cyan,magenta \"pnpm --filter @fitmybike/shared dev\" \"pnpm --filter @fitmybike/api dev\" \"pnpm --filter @fitmybike/web dev\"",
     "build": "pnpm --filter @fitmybike/shared build && pnpm --filter @fitmybike/api build && pnpm --filter @fitmybike/web build",
     "typecheck": "pnpm -r typecheck",
+    "verify": "pnpm lint && pnpm typecheck && pnpm openapi:check && pnpm test && pnpm e2e",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "pnpm -r test",
