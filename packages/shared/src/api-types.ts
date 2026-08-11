@@ -148,6 +148,86 @@ export interface paths {
         patch: operations["BikesController_update"];
         trace?: never;
     };
+    "/api/fits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FitsController_list"];
+        put?: never;
+        post: operations["FitsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fits/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["FitsController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["FitsController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["FitsController_update"];
+        trace?: never;
+    };
+    "/api/fits/{id}/body-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["FitsController_updateBodyMeasurements"];
+        trace?: never;
+    };
+    "/api/fits/{id}/bike-measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["FitsController_updateBikeMeasurements"];
+        trace?: never;
+    };
+    "/api/fits/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["FitsController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -285,6 +365,112 @@ export interface components {
              */
             type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
             notes?: string | null;
+        };
+        FitListDto: {
+            data: {
+                id: string;
+                customerId: string;
+                bikeId: string;
+                /** @enum {string} */
+                status: "IN_PROGRESS" | "COMPLETED";
+                /** @enum {string} */
+                currentStep: "BODY" | "BIKE_BEFORE" | "BIKE_AFTER" | "REVIEW";
+                reason: string | null;
+                startedAt: string;
+                completedAt: string | null;
+                customer: {
+                    id: string;
+                    firstName: string;
+                    lastName: string;
+                };
+                bike: {
+                    id: string;
+                    brand: string | null;
+                    model: string | null;
+                    sizeLabel: string | null;
+                    /** @enum {string} */
+                    type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+                };
+            }[];
+            meta: {
+                page: number;
+                perPage: number;
+                total: number;
+                totalPages: number;
+            };
+        };
+        FitDto: {
+            id: string;
+            customerId: string;
+            bikeId: string;
+            /** @enum {string} */
+            status: "IN_PROGRESS" | "COMPLETED";
+            /** @enum {string} */
+            currentStep: "BODY" | "BIKE_BEFORE" | "BIKE_AFTER" | "REVIEW";
+            reason: string | null;
+            startedAt: string;
+            completedAt: string | null;
+            customer: {
+                id: string;
+                firstName: string;
+                lastName: string;
+            };
+            bike: {
+                id: string;
+                brand: string | null;
+                model: string | null;
+                sizeLabel: string | null;
+                /** @enum {string} */
+                type: "ROAD" | "TT" | "GRAVEL" | "MTB" | "OTHER";
+            };
+            summary: string | null;
+            createdAt: string;
+            updatedAt: string;
+            bodyMeasurements: {
+                /** @enum {string} */
+                key: "inseam" | "torso_length" | "arm_length" | "shoulder_width" | "foot_length" | "sternal_notch_height" | "forward_flexion" | "saddle_height" | "saddle_setback" | "saddle_angle" | "saddle_nose_to_bar" | "saddle_to_bar_drop" | "stem_length" | "stem_angle" | "spacer_stack" | "bar_width" | "bar_reach" | "crank_length" | "cleat_fore_aft";
+                value: number;
+                note: string | null;
+                prefilled: boolean;
+            }[];
+            bikeMeasurements: {
+                /** @enum {string} */
+                key: "inseam" | "torso_length" | "arm_length" | "shoulder_width" | "foot_length" | "sternal_notch_height" | "forward_flexion" | "saddle_height" | "saddle_setback" | "saddle_angle" | "saddle_nose_to_bar" | "saddle_to_bar_drop" | "stem_length" | "stem_angle" | "spacer_stack" | "bar_width" | "bar_reach" | "crank_length" | "cleat_fore_aft";
+                value: number;
+                note: string | null;
+                prefilled: boolean;
+                /** @enum {string} */
+                stage: "BEFORE" | "AFTER";
+            }[];
+        };
+        CreateFitDto: {
+            customerId: string;
+            bikeId: string;
+            reason?: string | null;
+        };
+        UpdateFitDto: {
+            /** @enum {string} */
+            currentStep?: "BODY" | "BIKE_BEFORE" | "BIKE_AFTER" | "REVIEW";
+            reason?: string | null;
+            summary?: string | null;
+        };
+        UpdateBodyMeasurementsDto: {
+            measurements: {
+                /** @enum {string} */
+                key: "inseam" | "torso_length" | "arm_length" | "shoulder_width" | "foot_length" | "sternal_notch_height" | "forward_flexion" | "saddle_height" | "saddle_setback" | "saddle_angle" | "saddle_nose_to_bar" | "saddle_to_bar_drop" | "stem_length" | "stem_angle" | "spacer_stack" | "bar_width" | "bar_reach" | "crank_length" | "cleat_fore_aft";
+                value?: ("" | number) | null;
+                note?: string | null;
+            }[];
+        };
+        UpdateBikeMeasurementsDto: {
+            /** @enum {string} */
+            stage: "BEFORE" | "AFTER";
+            measurements: {
+                /** @enum {string} */
+                key: "inseam" | "torso_length" | "arm_length" | "shoulder_width" | "foot_length" | "sternal_notch_height" | "forward_flexion" | "saddle_height" | "saddle_setback" | "saddle_angle" | "saddle_nose_to_bar" | "saddle_to_bar_drop" | "stem_length" | "stem_angle" | "spacer_stack" | "bar_width" | "bar_reach" | "crank_length" | "cleat_fore_aft";
+                value?: ("" | number) | null;
+                note?: string | null;
+            }[];
         };
     };
     responses: never;
@@ -671,6 +857,262 @@ export interface operations {
                 };
             };
             /** @description No such bike in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                perPage?: number;
+                search?: string;
+                customerId?: string;
+                bikeId?: string;
+                status?: "IN_PROGRESS" | "COMPLETED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitListDto"];
+                };
+            };
+        };
+    };
+    FitsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFitDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such customer or bike in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The bike belongs to a different customer */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such fit in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fit archived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such fit in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFitDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such fit in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_updateBodyMeasurements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBodyMeasurementsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such fit in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A measurement is unknown or out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_updateBikeMeasurements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBikeMeasurementsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such fit in this organization */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A measurement is unknown or out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FitsController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FitDto"];
+                };
+            };
+            /** @description No such fit in this organization */
             404: {
                 headers: {
                     [name: string]: unknown;

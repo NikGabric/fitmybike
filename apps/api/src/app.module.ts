@@ -10,6 +10,7 @@ import { validateEnv } from './env';
 import { AuthModule } from './modules/auth/auth.module';
 import { BikesModule } from './modules/bikes/bikes.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { FitsModule } from './modules/fits/fits.module';
 import { HealthModule } from './modules/health/health.module';
 import { MeasurementDefinitionsModule } from './modules/measurement-definitions/measurement-definitions.module';
 
@@ -29,6 +30,7 @@ import { MeasurementDefinitionsModule } from './modules/measurement-definitions/
     CustomersModule,
     MeasurementDefinitionsModule,
     BikesModule,
+    FitsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

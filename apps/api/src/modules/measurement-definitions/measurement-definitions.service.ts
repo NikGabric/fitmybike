@@ -19,6 +19,16 @@ const DEFINITION_SELECT = {
   sortOrder: true,
 } satisfies Prisma.MeasurementDefinitionSelect;
 
+/** What a measurement save needs to resolve and validate a key. */
+export interface CatalogEntry {
+  id: string;
+  key: string;
+  label: string;
+  category: 'BODY' | 'BIKE';
+  minValue: number;
+  maxValue: number;
+}
+
 /**
  * The catalog is global, not tenant-scoped, so this service reaches the raw client on
  * purpose — `measurement_definitions` has no organizationId to filter on, and the
@@ -30,8 +40,28 @@ export class MeasurementDefinitionsService implements OnModuleInit {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * key -> definition, including the internal id. Built once after the sync: the
+   * catalog is immutable while the process runs, so re-reading it on every
+   * measurement save would be pure overhead.
+   */
+  private catalogByKey: Map<string, CatalogEntry> | null = null;
+
   async onModuleInit(): Promise<void> {
     await this.sync();
+  }
+
+  /** Resolves measurement keys to definition ids and their validation bounds. */
+  async catalog(): Promise<Map<string, CatalogEntry>> {
+    if (this.catalogByKey) return this.catalogByKey;
+
+    const rows = await this.prisma.measurementDefinition.findMany({
+      where: { retiredAt: null },
+      select: { id: true, key: true, label: true, category: true, minValue: true, maxValue: true },
+    });
+
+    this.catalogByKey = new Map(rows.map((row) => [row.key, row]));
+    return this.catalogByKey;
   }
 
   /**

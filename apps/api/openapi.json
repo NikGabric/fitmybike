@@ -456,6 +456,345 @@
           "bikes"
         ]
       }
+    },
+    "/api/fits": {
+      "get": {
+        "operationId": "FitsController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 9007199254740991,
+              "default": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "perPage",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "integer"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bikeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "IN_PROGRESS",
+                "COMPLETED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitListDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      },
+      "post": {
+        "operationId": "FitsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such customer or bike in this organization"
+          },
+          "422": {
+            "description": "The bike belongs to a different customer"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      }
+    },
+    "/api/fits/{id}": {
+      "get": {
+        "operationId": "FitsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      },
+      "patch": {
+        "operationId": "FitsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFitDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      },
+      "delete": {
+        "operationId": "FitsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Fit archived"
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      }
+    },
+    "/api/fits/{id}/body-measurements": {
+      "patch": {
+        "operationId": "FitsController_updateBodyMeasurements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBodyMeasurementsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          },
+          "422": {
+            "description": "A measurement is unknown or out of range"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      }
+    },
+    "/api/fits/{id}/bike-measurements": {
+      "patch": {
+        "operationId": "FitsController_updateBikeMeasurements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBikeMeasurementsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          },
+          "422": {
+            "description": "A measurement is unknown or out of range"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      }
+    },
+    "/api/fits/{id}/complete": {
+      "post": {
+        "operationId": "FitsController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FitDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such fit in this organization"
+          }
+        },
+        "tags": [
+          "fits"
+        ]
+      }
     }
   },
   "info": {
@@ -1168,6 +1507,574 @@
             "nullable": true
           }
         }
+      },
+      "FitListDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "customerId": {
+                  "type": "string"
+                },
+                "bikeId": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "IN_PROGRESS",
+                    "COMPLETED"
+                  ]
+                },
+                "currentStep": {
+                  "type": "string",
+                  "enum": [
+                    "BODY",
+                    "BIKE_BEFORE",
+                    "BIKE_AFTER",
+                    "REVIEW"
+                  ]
+                },
+                "reason": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "startedAt": {
+                  "type": "string"
+                },
+                "completedAt": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "customer": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "firstName": {
+                      "type": "string"
+                    },
+                    "lastName": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "firstName",
+                    "lastName"
+                  ]
+                },
+                "bike": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "brand": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "model": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "sizeLabel": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "ROAD",
+                        "TT",
+                        "GRAVEL",
+                        "MTB",
+                        "OTHER"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "brand",
+                    "model",
+                    "sizeLabel",
+                    "type"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "customerId",
+                "bikeId",
+                "status",
+                "currentStep",
+                "reason",
+                "startedAt",
+                "completedAt",
+                "customer",
+                "bike"
+              ]
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "perPage": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "totalPages": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "page",
+              "perPage",
+              "total",
+              "totalPages"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "FitDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "bikeId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "IN_PROGRESS",
+              "COMPLETED"
+            ]
+          },
+          "currentStep": {
+            "type": "string",
+            "enum": [
+              "BODY",
+              "BIKE_BEFORE",
+              "BIKE_AFTER",
+              "REVIEW"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "firstName": {
+                "type": "string"
+              },
+              "lastName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "firstName",
+              "lastName"
+            ]
+          },
+          "bike": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "brand": {
+                "type": "string",
+                "nullable": true
+              },
+              "model": {
+                "type": "string",
+                "nullable": true
+              },
+              "sizeLabel": {
+                "type": "string",
+                "nullable": true
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ROAD",
+                  "TT",
+                  "GRAVEL",
+                  "MTB",
+                  "OTHER"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "brand",
+              "model",
+              "sizeLabel",
+              "type"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "bodyMeasurements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "inseam",
+                    "torso_length",
+                    "arm_length",
+                    "shoulder_width",
+                    "foot_length",
+                    "sternal_notch_height",
+                    "forward_flexion",
+                    "saddle_height",
+                    "saddle_setback",
+                    "saddle_angle",
+                    "saddle_nose_to_bar",
+                    "saddle_to_bar_drop",
+                    "stem_length",
+                    "stem_angle",
+                    "spacer_stack",
+                    "bar_width",
+                    "bar_reach",
+                    "crank_length",
+                    "cleat_fore_aft"
+                  ]
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "note": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "prefilled": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "value",
+                "note",
+                "prefilled"
+              ]
+            }
+          },
+          "bikeMeasurements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "inseam",
+                    "torso_length",
+                    "arm_length",
+                    "shoulder_width",
+                    "foot_length",
+                    "sternal_notch_height",
+                    "forward_flexion",
+                    "saddle_height",
+                    "saddle_setback",
+                    "saddle_angle",
+                    "saddle_nose_to_bar",
+                    "saddle_to_bar_drop",
+                    "stem_length",
+                    "stem_angle",
+                    "spacer_stack",
+                    "bar_width",
+                    "bar_reach",
+                    "crank_length",
+                    "cleat_fore_aft"
+                  ]
+                },
+                "value": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "note": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "prefilled": {
+                  "type": "boolean"
+                },
+                "stage": {
+                  "type": "string",
+                  "enum": [
+                    "BEFORE",
+                    "AFTER"
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "value",
+                "note",
+                "prefilled",
+                "stage"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "customerId",
+          "bikeId",
+          "status",
+          "currentStep",
+          "reason",
+          "startedAt",
+          "completedAt",
+          "customer",
+          "bike",
+          "summary",
+          "createdAt",
+          "updatedAt",
+          "bodyMeasurements",
+          "bikeMeasurements"
+        ]
+      },
+      "CreateFitDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bikeId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          }
+        },
+        "required": [
+          "customerId",
+          "bikeId"
+        ]
+      },
+      "UpdateFitDto": {
+        "type": "object",
+        "properties": {
+          "currentStep": {
+            "type": "string",
+            "enum": [
+              "BODY",
+              "BIKE_BEFORE",
+              "BIKE_AFTER",
+              "REVIEW"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 5000,
+            "nullable": true
+          }
+        }
+      },
+      "UpdateBodyMeasurementsDto": {
+        "type": "object",
+        "properties": {
+          "measurements": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "inseam",
+                    "torso_length",
+                    "arm_length",
+                    "shoulder_width",
+                    "foot_length",
+                    "sternal_notch_height",
+                    "forward_flexion",
+                    "saddle_height",
+                    "saddle_setback",
+                    "saddle_angle",
+                    "saddle_nose_to_bar",
+                    "saddle_to_bar_drop",
+                    "stem_length",
+                    "stem_angle",
+                    "spacer_stack",
+                    "bar_width",
+                    "bar_reach",
+                    "crank_length",
+                    "cleat_fore_aft"
+                  ]
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        ""
+                      ]
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -100000,
+                      "maximum": 100000
+                    }
+                  ],
+                  "nullable": true
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "nullable": true
+                }
+              },
+              "required": [
+                "key"
+              ]
+            }
+          }
+        },
+        "required": [
+          "measurements"
+        ]
+      },
+      "UpdateBikeMeasurementsDto": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "BEFORE",
+              "AFTER"
+            ]
+          },
+          "measurements": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "inseam",
+                    "torso_length",
+                    "arm_length",
+                    "shoulder_width",
+                    "foot_length",
+                    "sternal_notch_height",
+                    "forward_flexion",
+                    "saddle_height",
+                    "saddle_setback",
+                    "saddle_angle",
+                    "saddle_nose_to_bar",
+                    "saddle_to_bar_drop",
+                    "stem_length",
+                    "stem_angle",
+                    "spacer_stack",
+                    "bar_width",
+                    "bar_reach",
+                    "crank_length",
+                    "cleat_fore_aft"
+                  ]
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        ""
+                      ]
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": -100000,
+                      "maximum": 100000
+                    }
+                  ],
+                  "nullable": true
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "nullable": true
+                }
+              },
+              "required": [
+                "key"
+              ]
+            }
+          }
+        },
+        "required": [
+          "stage",
+          "measurements"
+        ]
       }
     }
   }
