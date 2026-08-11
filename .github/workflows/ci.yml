@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A superseded run tells you nothing useful.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: fitmybike
+          POSTGRES_PASSWORD: fitmybike
+          POSTGRES_DB: fitmybike
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fitmybike -d fitmybike"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Two databases: `fitmybike` is migrated and seeded and is what the e2e run
+      # drives; `fitmybike_test` is reset from scratch by the API integration suite.
+      DATABASE_URL: postgresql://fitmybike:fitmybike@localhost:5432/fitmybike?schema=public
+      TEST_DATABASE_URL: postgresql://fitmybike:fitmybike@localhost:5432/fitmybike_test?schema=public
+      SESSION_COOKIE_NAME: fmb_session
+      SESSION_TTL_DAYS: '30'
+      APP_URL: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Prerequisites for lint, typecheck and the contract check: the API compiles
+      # against the shared package's build output and the generated Prisma client.
+      - name: Build shared package and generate Prisma client
+        run: |
+          pnpm --filter @fitmybike/shared build
+          pnpm --filter @fitmybike/api exec prisma generate
+
+      # apps/api/test/global-setup.ts pushes the schema into this database; it does
+      # not create it.
+      - name: Create the test database
+        run: |
+          export PGPASSWORD=fitmybike
+          psql -h localhost -U fitmybike -d fitmybike -tc \
+            "SELECT 1 FROM pg_database WHERE datname = 'fitmybike_test'" | grep -q 1 \
+            || psql -h localhost -U fitmybike -d fitmybike -c 'CREATE DATABASE fitmybike_test'
+
+      # The e2e specs log in as seeded users and assert on seeded names, so seeding
+      # has to happen before them.
+      - name: Migrate and seed
+        run: |
+          pnpm db:deploy
+          pnpm db:seed
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # Fails if the committed OpenAPI document or generated client is stale.
+      - name: Contract is up to date
+        run: pnpm openapi:check
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      - name: Install Playwright browser
+        run: pnpm --filter @fitmybike/web exec playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7

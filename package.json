@@ -11,6 +11,7 @@
     "dev": "pnpm --filter @fitmybike/shared build && concurrently -n shared,api,web -c gray,cyan,magenta \"pnpm --filter @fitmybike/shared dev\" \"pnpm --filter @fitmybike/api dev\" \"pnpm --filter @fitmybike/web dev\"",
     "build": "pnpm --filter @fitmybike/shared build && pnpm --filter @fitmybike/api build && pnpm --filter @fitmybike/web build",
     "typecheck": "pnpm -r typecheck",
+    "verify": "pnpm lint && pnpm typecheck && pnpm openapi:check && pnpm test && pnpm e2e",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "pnpm -r test",
@@ -20,6 +21,7 @@
     "db:up": "docker compose -f compose.dev.yaml up -d --wait",
     "db:down": "docker compose -f compose.dev.yaml down",
     "db:migrate": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma migrate dev",
+    "db:deploy": "pnpm --filter @fitmybike/api exec prisma migrate deploy",
     "db:reset": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma migrate reset",
     "db:seed": "pnpm --filter @fitmybike/api seed",
     "db:studio": "dotenv -e .env -- pnpm --filter @fitmybike/api exec prisma studio"
