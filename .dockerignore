@@ -1,0 +1,13 @@
+# Keep the build context small and force a clean install/build inside the image.
+**/node_modules
+**/dist
+apps/api/generated
+apps/web/playwright-report
+apps/web/test-results
+.git
+.github
+.env
+.env.*
+!.env.example
+**/*.log
+.DS_Store
