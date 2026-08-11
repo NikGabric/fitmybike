@@ -10,6 +10,7 @@ import { validateEnv } from './env';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { HealthModule } from './modules/health/health.module';
+import { MeasurementDefinitionsModule } from './modules/measurement-definitions/measurement-definitions.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { HealthModule } from './modules/health/health.module';
     AuthModule,
     HealthModule,
     CustomersModule,
+    MeasurementDefinitionsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

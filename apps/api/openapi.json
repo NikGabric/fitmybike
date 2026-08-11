@@ -263,6 +263,27 @@
           "customers"
         ]
       }
+    },
+    "/api/measurement-definitions": {
+      "get": {
+        "operationId": "MeasurementDefinitionsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementDefinitionListDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "measurement-definitions"
+        ]
+      }
     }
   },
   "info": {
@@ -697,6 +718,93 @@
             "nullable": true
           }
         }
+      },
+      "MeasurementDefinitionListDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "inseam",
+                    "torso_length",
+                    "arm_length",
+                    "shoulder_width",
+                    "foot_length",
+                    "sternal_notch_height",
+                    "forward_flexion",
+                    "saddle_height",
+                    "saddle_setback",
+                    "saddle_angle",
+                    "saddle_nose_to_bar",
+                    "saddle_to_bar_drop",
+                    "stem_length",
+                    "stem_angle",
+                    "spacer_stack",
+                    "bar_width",
+                    "bar_reach",
+                    "crank_length",
+                    "cleat_fore_aft"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "BODY",
+                    "BIKE"
+                  ]
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": [
+                    "MM",
+                    "DECIDEGREE",
+                    "GRAM"
+                  ]
+                },
+                "minValue": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "maxValue": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "helpText": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "sortOrder": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "category",
+                "unit",
+                "minValue",
+                "maxValue",
+                "helpText",
+                "sortOrder"
+              ]
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
       }
     }
   }

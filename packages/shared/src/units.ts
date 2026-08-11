@@ -9,6 +9,7 @@ export const MM_PER_CM = 10;
 export const MM_PER_INCH = 25.4;
 export const GRAMS_PER_KG = 1000;
 export const GRAMS_PER_POUND = 453.59237;
+export const DECIDEGREES_PER_DEGREE = 10;
 
 export type UnitSystem = 'metric' | 'imperial';
 
@@ -47,4 +48,34 @@ export function formatWeight(
 ): string {
   if (grams == null) return '—';
   return system === 'metric' ? `${gramsToKg(grams)} kg` : `${gramsToPounds(grams)} lb`;
+}
+
+// --- angle ---
+// Angles are stored as tenths of a degree so the "integers only" rule holds for
+// every measurement, with no floating-point exception to remember.
+export const decidegreesToDegrees = (decidegrees: number): number =>
+  round(decidegrees / DECIDEGREES_PER_DEGREE, 1);
+export const degreesToDecidegrees = (degrees: number): number =>
+  Math.round(degrees * DECIDEGREES_PER_DEGREE);
+
+/**
+ * A catalog measurement for display, dispatched on its stored unit.
+ *
+ * Lengths follow `system`; angles are degrees everywhere, because no fitting studio
+ * measures saddle tilt in anything else.
+ */
+export function formatMeasurement(
+  value: number | null | undefined,
+  unit: 'MM' | 'DECIDEGREE' | 'GRAM',
+  system: UnitSystem = 'metric',
+): string {
+  if (value == null) return '—';
+  switch (unit) {
+    case 'MM':
+      return system === 'metric' ? `${mmToCm(value)} cm` : `${mmToInches(value)}"`;
+    case 'DECIDEGREE':
+      return `${decidegreesToDegrees(value)}°`;
+    case 'GRAM':
+      return formatWeight(value, system);
+  }
 }
