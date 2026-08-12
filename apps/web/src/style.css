@@ -23,6 +23,12 @@
     --destructive: oklch(50% 0.2 20);
     --ring: oklch(52% 0.19 42);
     --radius: 0.1875rem;
+
+    /* One variable font supplies both the display and body roles; only the
+       width axis differs between them. */
+    --font-display: 'Archivo Variable', system-ui, sans-serif;
+    --font-sans: 'Archivo Variable', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -50,6 +56,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 }
@@ -68,4 +75,34 @@
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
   --radius-card: var(--radius);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer components {
+  /* Wordmark and page titles. */
+  .type-display {
+    font-family: var(--font-display);
+    font-stretch: 125%;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Field labels and table headers. Capitals come from CSS so the DOM keeps
+     sentence case for screen readers and for text-matching tests. */
+  .type-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Every number in the app. Tabular figures keep measurement columns aligned. */
+  .type-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
 }
