@@ -24,7 +24,6 @@ const props = defineProps<{
   values: Record<string, GridValue>;
   /** Server-side errors from the last save, keyed by measurement key. */
   errors?: Record<string, string>;
-  saving?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -39,6 +38,12 @@ const emit = defineEmits<{
 const draft = ref<Record<string, string | number>>({});
 /** Keys the fitter has actually edited, so a prefilled value stops reading as inherited. */
 const touched = ref<Set<string>>(new Set());
+/**
+ * Keys edited since the last save. Separate from `touched`, which is cumulative for
+ * the badge: without this every flush re-sent the whole screen, so filling twelve
+ * fields sent twelve requests, the last carrying all twelve keys.
+ */
+const dirty = ref<Set<string>>(new Set());
 const localErrors = ref<Record<string, string>>({});
 
 /** Rebuilds the draft when the server sends new values (load, or a save response). */
@@ -69,6 +74,7 @@ let debounce: ReturnType<typeof setTimeout> | undefined;
 function onInput(definition: MeasurementDefinition, raw: string | number): void {
   draft.value[definition.key] = raw;
   touched.value.add(definition.key);
+  dirty.value.add(definition.key);
 
   const { min, max } = displayBounds(definition.unit, definition.minValue, definition.maxValue);
   const parsed = raw === '' ? null : Number(raw);
@@ -87,7 +93,7 @@ function onInput(definition: MeasurementDefinition, raw: string | number): void 
 }
 
 function flush(): void {
-  const changes = [...touched.value]
+  const changes = [...dirty.value]
     .filter((key) => !localErrors.value[key])
     .map((key) => {
       const definition = props.definitions.find((d) => d.key === key);
@@ -96,7 +102,13 @@ function flush(): void {
     })
     .filter((change): change is { key: string; value: number | null } => change !== null);
 
-  if (changes.length > 0) emit('save', changes);
+  if (changes.length === 0) return;
+
+  // Cleared optimistically. If the save fails the parent calls markDirty() to put
+  // these back, so a failed autosave retries on the next edit or step change rather
+  // than being dropped.
+  for (const change of changes) dirty.value.delete(change.key);
+  emit('save', changes);
 }
 
 /** Flushes any pending edit — the wizard calls this before moving between steps. */
@@ -105,7 +117,12 @@ function flushNow(): void {
   flush();
 }
 
-defineExpose({ flushNow });
+/** Re-queues keys whose save failed. */
+function markDirty(keys: string[]): void {
+  for (const key of keys) dirty.value.add(key);
+}
+
+defineExpose({ flushNow, markDirty });
 
 const errorFor = (key: string): string | undefined =>
   localErrors.value[key] ?? props.errors?.[key];

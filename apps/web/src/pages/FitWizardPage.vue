@@ -59,8 +59,13 @@ const STEPS: Array<{
   { step: 'REVIEW', title: 'Review', blurb: 'What changed, and why.', category: null, stage: null },
 ];
 
-const gridRef = useTemplateRef<{ flushNow: () => void }>('grid');
+const gridRef = useTemplateRef<{ flushNow: () => void; markDirty: (keys: string[]) => void }>(
+  'grid',
+);
 const saveErrors = ref<Record<string, string>>({});
+/** 'idle' until something has actually been saved — "Saved" must mean it. */
+const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
+const saveMessage = ref('');
 const summary = ref('');
 
 const fit = useQuery({
@@ -163,35 +168,65 @@ const saveMeasurements = useMutation({
         ),
   onSuccess: (updated) => {
     saveErrors.value = {};
+    saveState.value = 'saved';
     queryClient.setQueryData(['fit', props.id], updated);
   },
   onError: (error: unknown) => {
+    // Every failure has to be visible. Reporting only validation errors meant a
+    // conflict, a dropped connection or an expired session left the indicator
+    // reading "Saved" while the measurements were gone.
+    saveState.value = 'error';
+    saveMessage.value =
+      error instanceof ApiError ? error.message : 'Could not save. Check your connection.';
+
     if (error instanceof ApiError && error.details) {
       const mapped: Record<string, string> = {};
       for (const [key, messages] of Object.entries(error.details)) {
         if (messages[0]) mapped[key] = messages[0];
       }
       saveErrors.value = mapped;
+      saveMessage.value = 'Some measurements were rejected.';
     }
+
+    // The values are still in the inputs; mark them dirty so the next flush retries.
+    gridRef.value?.markDirty(pendingKeys.value);
   },
 });
+
+/**
+ * Autosaves run one at a time.
+ *
+ * The grid flushes on blur as well as on a debounce, so tabbing through a screenful
+ * faster than the round trip used to put overlapping batches in flight against the
+ * same rows. The server is idempotent now, but serialising also means the last write
+ * genuinely lands last rather than whichever response happens to return last.
+ */
+let saveChain: Promise<unknown> = Promise.resolve();
+const pendingKeys = ref<string[]>([]);
 
 /** Runs synchronously from the grid's emit, while `step` is still the grid's step. */
 function onGridSave(changes: MeasurementChange[]): void {
   const current = step.value;
   if (!current?.category) return;
 
-  saveMeasurements.mutate(
+  const payload: SavePayload =
     current.category === 'BODY'
       ? { kind: 'body', measurements: changes }
-      : { kind: 'bike', stage: current.stage as FitStage, measurements: changes },
-  );
+      : { kind: 'bike', stage: current.stage as FitStage, measurements: changes };
+
+  saveState.value = 'saving';
+  pendingKeys.value = changes.map((c) => c.key);
+  saveChain = saveChain
+    .then(() => saveMeasurements.mutateAsync(payload))
+    .catch(() => undefined);
 }
 
 const saveFit = useMutation({
   mutationFn: (body: { currentStep?: FitStep; summary?: string | null }) =>
     unwrap(api.PATCH('/api/fits/{id}', { params: { path: { id: props.id } }, body })),
-  onSuccess: (updated) => queryClient.setQueryData(['fit', props.id], updated),
+  // Deliberately does NOT write the fit cache. Step and summary are local state
+  // here, and this response is a snapshot that may predate an in-flight measurement
+  // save — publishing it would drop measurements that were in fact persisted.
 });
 
 const complete = useMutation({
@@ -205,9 +240,16 @@ const complete = useMutation({
 });
 
 async function goTo(next: FitStep): Promise<void> {
-  // Flush anything still sitting in the debounce, or moving on loses the last field.
+  // Flush anything still sitting in the debounce, or moving on loses the last field,
+  // then let it land before switching — the step write must not overtake it.
   gridRef.value?.flushNow();
+  await saveChain;
+
   currentStep.value = next;
+  // Errors from the previous step should not follow the fitter to the next one.
+  saveErrors.value = {};
+  saveState.value = 'idle';
+
   // Remembering the step is a convenience; failing to record it must not block the
   // fitter from moving on, and must not surface as an unhandled rejection.
   await saveFit.mutateAsync({ currentStep: next }).catch(() => undefined);
@@ -219,6 +261,18 @@ const next = (): Promise<void> =>
 
 async function finish(): Promise<void> {
   await saveFit.mutateAsync({ summary: summary.value === '' ? null : summary.value });
+
+  // Already complete: this is a correction, so save the summary and leave. Calling
+  // complete again would be harmless server-side now, but there is nothing to do.
+  if (fit.data.value?.status === 'COMPLETED') {
+    await queryClient.invalidateQueries({ queryKey: ['fits'] });
+    await router.push({
+      name: 'customer-detail',
+      params: { id: fit.data.value.customerId },
+    });
+    return;
+  }
+
   await complete.mutateAsync();
 }
 
@@ -257,9 +311,16 @@ const bodySummary = computed(() => {
 });
 
 const savingLabel = computed(() => {
-  if (saveMeasurements.isPending.value) return 'Saving…';
-  if (Object.keys(saveErrors.value).length > 0) return 'Not saved';
-  return 'Saved';
+  switch (saveState.value) {
+    case 'saving':
+      return 'Saving…';
+    case 'saved':
+      return 'Saved';
+    case 'error':
+      return saveMessage.value || 'Not saved';
+    default:
+      return '';
+  }
 });
 </script>
 
@@ -331,7 +392,6 @@ const savingLabel = computed(() => {
           :definitions="definitions"
           :values="values"
           :errors="saveErrors"
-          :saving="saveMeasurements.isPending.value"
           @save="onGridSave"
         />
 

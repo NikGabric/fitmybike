@@ -44,6 +44,8 @@ test('walks a full fit from body measurements to a completed comparison', async 
   await expect(page.getByTestId('step-BODY')).toHaveAttribute('aria-current', 'step');
 
   // --- body ---
+  // Blank until something is actually saved, so "Saved" below means it.
+  await expect(page.getByTestId('save-state')).toHaveText('');
   await page.getByTestId('m-inseam').fill('845');
   await page.getByTestId('m-shoulder_width').fill('425');
   await expect(page.getByTestId('save-state')).toHaveText('Saved');

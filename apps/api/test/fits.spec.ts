@@ -384,6 +384,77 @@ describe('fits', () => {
       expect(count).toBe(0);
     });
 
+    /**
+     * The wizard flushes on blur as well as on a debounce, so a fitter tabbing
+     * through faster than the round trip puts overlapping batches in flight against
+     * the same rows. Delete-then-create lost one of them: the second transaction
+     * could not see the first's uncommitted insert, deleted nothing, and then died
+     * on the unique index — taking every other measurement in its batch with it.
+     *
+     * The interleaving is timing-dependent, so this fires enough overlapping
+     * batches to make it likely rather than certain. It is a regression net, not a
+     * proof; the guarantee comes from the endpoint being idempotent.
+     */
+    it('keeps every value when overlapping batches touch the same measurements', async () => {
+      const fit = await startFit(cookieA, customerA.id, bikeA.id);
+
+      const batches = [
+        [{ key: 'saddle_height', value: 700 }],
+        [
+          { key: 'saddle_height', value: 705 },
+          { key: 'stem_length', value: 100 },
+        ],
+        [
+          { key: 'saddle_height', value: 710 },
+          { key: 'bar_width', value: 400 },
+        ],
+        [
+          { key: 'saddle_height', value: 715 },
+          { key: 'spacer_stack', value: 20 },
+        ],
+        [
+          { key: 'stem_length', value: 110 },
+          { key: 'bar_width', value: 420 },
+        ],
+      ];
+
+      const responses = await Promise.all(
+        batches.map((measurements) =>
+          request(app.getHttpServer())
+            .patch(`/api/fits/${fit.id}/bike-measurements`)
+            .set('Cookie', cookieA)
+            .send({ stage: 'BEFORE', measurements }),
+        ),
+      );
+
+      // No batch may fail, and none may take an innocent measurement down with it.
+      expect(responses.every((r) => r.status === 200)).toBe(true);
+
+      const rows = await prisma.fitBikeMeasurement.findMany({
+        where: { fitId: fit.id },
+        select: { definition: { select: { key: true } } },
+      });
+
+      expect(new Set(rows.map((r) => r.definition.key))).toEqual(
+        new Set(['saddle_height', 'stem_length', 'bar_width', 'spacer_stack']),
+      );
+    });
+
+    it('rejects the same measurement twice in one batch', async () => {
+      const fit = await startFit(cookieA, customerA.id, bikeA.id);
+
+      await request(app.getHttpServer())
+        .patch(`/api/fits/${fit.id}/body-measurements`)
+        .set('Cookie', cookieA)
+        .send({
+          measurements: [
+            { key: 'inseam', value: 800 },
+            { key: 'inseam', value: 810 },
+          ],
+        })
+        .expect(422);
+    });
+
     it('rejects an unknown measurement key', async () => {
       const fit = await startFit(cookieA, customerA.id, bikeA.id);
 
@@ -439,6 +510,26 @@ describe('fits', () => {
         .expect(200);
 
       expect(response.body.bodyMeasurements[0]).toMatchObject({ key: 'inseam', value: 815 });
+    });
+
+    // Prefill picks its source by completedAt desc, so re-dating a fit from January
+    // would quietly make it the seed for the customer's next one.
+    it('does not re-date a fit that is completed again after a correction', async () => {
+      const fit = await startFit(cookieA, customerA.id, bikeA.id);
+
+      const first = await request(app.getHttpServer())
+        .post(`/api/fits/${fit.id}/complete`)
+        .set('Cookie', cookieA)
+        .expect(200);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const second = await request(app.getHttpServer())
+        .post(`/api/fits/${fit.id}/complete`)
+        .set('Cookie', cookieA)
+        .expect(200);
+
+      expect(second.body.completedAt).toBe(first.body.completedAt);
     });
 
     it('soft-deletes: the row survives but leaves the list', async () => {

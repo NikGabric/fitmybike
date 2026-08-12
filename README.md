@@ -3,9 +3,10 @@
 Bike fitting studio management: fitters keep their customers, are guided through a fit, and hand
 over measurements and resources by email at the end.
 
-This repository is **Phase 0** — the stack skeleton. The guided fit session, measurements catalog,
-photos and email sending are not built yet. What exists is a complete vertical slice (Customers)
-that every later module can be copied from.
+What exists: customers, their bikes, the measurement definition catalog, and the guided fit session
+— a four-step wizard that records the rider, the bike as it arrived and the bike as delivered, and
+shows what changed. Photos, PDF fit sheets, shareable report links and email sending are not built
+yet. Customers is still the reference module every later one is copied from.
 
 ## Stack
 
@@ -148,6 +149,9 @@ by running with `NODE_ENV=production` (already the default in the image).
 
 ```
 apps/api          NestJS. modules/ holds features; customers/ is the reference module.
+                  bikes/, fits/ and measurement-definitions/ are built on its shape.
 apps/web          Vue 3 SPA. pages/, components/ui/, stores/, lib/api.ts.
 packages/shared   Zod schemas, unit conversion, generated API types.
+                  schemas/measurement.ts is the measurement catalog — the source of
+                  truth, mirrored into the database when the API boots.
 ```

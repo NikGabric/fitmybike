@@ -58,14 +58,24 @@ export type MeasurementInput = z.output<typeof measurementInputSchema>;
  * A batch replaces each named measurement outright — value and note together.
  * Keys absent from the batch are left untouched.
  */
+/** One entry per key: two would race each other inside the same transaction. */
+const uniqueKeys = (measurements: Array<{ key: string }>): boolean =>
+  new Set(measurements.map((m) => m.key)).size === measurements.length;
+
 export const updateBodyMeasurementsSchema = z.object({
-  measurements: z.array(measurementInputSchema).max(100),
+  measurements: z
+    .array(measurementInputSchema)
+    .max(100)
+    .refine(uniqueKeys, 'Each measurement may appear only once'),
 });
 export type UpdateBodyMeasurementsData = z.output<typeof updateBodyMeasurementsSchema>;
 
 export const updateBikeMeasurementsSchema = z.object({
   stage: fitStageSchema,
-  measurements: z.array(measurementInputSchema).max(100),
+  measurements: z
+    .array(measurementInputSchema)
+    .max(100)
+    .refine(uniqueKeys, 'Each measurement may appear only once'),
 });
 export type UpdateBikeMeasurementsData = z.output<typeof updateBikeMeasurementsSchema>;
 

@@ -145,7 +145,10 @@ export class FitsService {
         orderBy: { completedAt: 'desc' },
         select: {
           bikeMeasurements: {
-            where: { stage: 'AFTER' },
+            // Retired definitions are excluded from GET /measurement-definitions, so
+            // carrying one forward would create a value the UI cannot render, edit or
+            // clear — and it would be copied into every fit after this one.
+            where: { stage: 'AFTER', definition: { retiredAt: null } },
             select: { definitionId: true, value: true },
           },
         },
@@ -153,7 +156,12 @@ export class FitsService {
       db.fit.findFirst({
         where: { customerId: input.customerId, status: 'COMPLETED', deletedAt: null },
         orderBy: { completedAt: 'desc' },
-        select: { bodyMeasurements: { select: { definitionId: true, value: true } } },
+        select: {
+          bodyMeasurements: {
+            where: { definition: { retiredAt: null } },
+            select: { definitionId: true, value: true },
+          },
+        },
       }),
     ]);
 
@@ -198,11 +206,24 @@ export class FitsService {
   }
 
   async complete(organizationId: string, id: string): Promise<Fit> {
-    await this.requireFit(organizationId, id);
+    const db = this.prisma.forOrg(organizationId);
 
-    const row = await this.prisma.forOrg(organizationId).fit.update({
+    const existing = await db.fit.findFirst({
+      where: { id, deletedAt: null },
+      select: { completedAt: true },
+    });
+    if (!existing) throw new NotFoundException('Fit not found');
+
+    const row = await db.fit.update({
       where: { id },
-      data: { status: 'COMPLETED', completedAt: new Date(), currentStep: 'REVIEW' },
+      data: {
+        status: 'COMPLETED',
+        // Completing again — correcting a number on an old fit — must not re-date it.
+        // Prefill picks its source by `completedAt desc`, so re-stamping a fit from
+        // January would quietly make it the seed for the customer's next one.
+        completedAt: existing.completedAt ?? new Date(),
+        currentStep: 'REVIEW',
+      },
       select: FIT_SELECT,
     });
     return toFit(row);
@@ -223,30 +244,41 @@ export class FitsService {
   ): Promise<Fit> {
     await this.requireFit(organizationId, id);
     const resolved = await this.resolve(input.measurements, 'BODY');
-
     const db = this.prisma.forOrg(organizationId);
-    const definitionIds = resolved.map((r) => r.entry.id);
 
-    // Replace rather than upsert: a batch carries the whole state of each key it
-    // names — value and note together — so clearing a field leaves no row behind.
-    // Keys absent from the batch are never touched.
-    await db.$transaction([
-      db.fitBodyMeasurement.deleteMany({
-        where: { fitId: id, definitionId: { in: definitionIds } },
-      }),
-      db.fitBodyMeasurement.createMany({
-        data: resolved
-          .filter((r) => r.input.value !== null)
-          .map((r) => ({
+    // A batch carries the whole state of each key it names — value and note
+    // together — and never touches keys it does not name. Clearing a field removes
+    // the row rather than storing a zero.
+    //
+    // Upsert rather than delete-then-create, because the wizard autosaves: two
+    // overlapping batches naming the same key would each delete nothing the other
+    // had not yet committed and then both insert, and one would die on the unique
+    // index taking its whole batch with it. Upserting makes a batch idempotent and
+    // last-write-wins. Ordered by definitionId so concurrent batches take row locks
+    // in the same sequence and cannot deadlock.
+    await db.$transaction(async (tx) => {
+      for (const { entry, input: measurement } of orderedByDefinition(resolved)) {
+        if (measurement.value === null) {
+          await tx.fitBodyMeasurement.deleteMany({
+            where: { fitId: id, definitionId: entry.id },
+          });
+          continue;
+        }
+
+        await tx.fitBodyMeasurement.upsert({
+          where: { fitId_definitionId: { fitId: id, definitionId: entry.id } },
+          create: {
             organizationId,
             fitId: id,
-            definitionId: r.entry.id,
-            value: r.input.value as number,
-            note: r.input.note,
+            definitionId: entry.id,
+            value: measurement.value,
+            note: measurement.note,
             prefilled: false,
-          })),
-      }),
-    ]);
+          },
+          update: { value: measurement.value, note: measurement.note, prefilled: false },
+        });
+      }
+    });
 
     return this.get(organizationId, id);
   }
@@ -258,28 +290,40 @@ export class FitsService {
   ): Promise<Fit> {
     await this.requireFit(organizationId, id);
     const resolved = await this.resolve(input.measurements, 'BIKE');
-
     const db = this.prisma.forOrg(organizationId);
-    const definitionIds = resolved.map((r) => r.entry.id);
 
-    await db.$transaction([
-      db.fitBikeMeasurement.deleteMany({
-        where: { fitId: id, stage: input.stage, definitionId: { in: definitionIds } },
-      }),
-      db.fitBikeMeasurement.createMany({
-        data: resolved
-          .filter((r) => r.input.value !== null)
-          .map((r) => ({
+    // Same semantics and the same concurrency reasoning as the body batch above,
+    // with the stage as part of the key: BEFORE and AFTER are separate rows.
+    await db.$transaction(async (tx) => {
+      for (const { entry, input: measurement } of orderedByDefinition(resolved)) {
+        if (measurement.value === null) {
+          await tx.fitBikeMeasurement.deleteMany({
+            where: { fitId: id, stage: input.stage, definitionId: entry.id },
+          });
+          continue;
+        }
+
+        await tx.fitBikeMeasurement.upsert({
+          where: {
+            fitId_definitionId_stage: {
+              fitId: id,
+              definitionId: entry.id,
+              stage: input.stage,
+            },
+          },
+          create: {
             organizationId,
             fitId: id,
-            definitionId: r.entry.id,
+            definitionId: entry.id,
             stage: input.stage,
-            value: r.input.value as number,
-            note: r.input.note,
+            value: measurement.value,
+            note: measurement.note,
             prefilled: false,
-          })),
-      }),
-    ]);
+          },
+          update: { value: measurement.value, note: measurement.note, prefilled: false },
+        });
+      }
+    });
 
     return this.get(organizationId, id);
   }
@@ -338,6 +382,15 @@ export class FitsService {
 
     if (!fit) throw new NotFoundException('Fit not found');
   }
+}
+
+/**
+ * Stable lock order for a batch. Two concurrent batches touching an overlapping set
+ * of measurements will take their row locks in the same sequence, so they queue
+ * rather than deadlock.
+ */
+function orderedByDefinition<T extends { entry: CatalogEntry }>(resolved: T[]): T[] {
+  return [...resolved].sort((a, b) => a.entry.id.localeCompare(b.entry.id));
 }
 
 function toFitSummary(row: FitSummaryRow): FitList['data'][number] {
