@@ -105,4 +105,53 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+
+  /* The signature: a millimetre rule. Short tick every 4px, tall every fifth.
+     The unit is the product's own, which is why this earns its place rather
+     than decorating. Used in exactly three places — page headers, the login
+     card edge, and the active sidebar item. */
+  .tick-rail {
+    height: 6px;
+    background-repeat: repeat-x;
+    background-position: bottom left;
+    background-image:
+      repeating-linear-gradient(to right, var(--input) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 4px);
+    background-size:
+      100% 6px,
+      100% 3px;
+  }
+
+  .tick-rail-vertical {
+    height: auto;
+    width: 6px;
+    background-repeat: repeat-y;
+    background-position: top right;
+    background-image:
+      repeating-linear-gradient(to bottom, var(--input) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 4px);
+    background-size:
+      6px 100%,
+      3px 100%;
+  }
+
+  /* Sidebar item. The active one grows an orange tick-rail on its left edge:
+     the accent marks the thing you are on, which is its one job. */
+  .nav-item {
+    position: relative;
+  }
+
+  .nav-item.is-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.375rem;
+    bottom: 0.375rem;
+    width: 3px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--primary) 0 1px,
+      transparent 1px 4px
+    );
+  }
 }
