@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { testLastName } from './support';
 
 const OWNER = { email: 'owner@fitmybike.test', password: 'changeme123' };
 const OTHER_ORG_OWNER = { email: 'owner@alpinelab.test', password: 'changeme123' };
@@ -23,7 +24,7 @@ async function createCustomer(page: Page, lastName: string): Promise<string> {
 }
 
 test('walks a full fit from body measurements to a completed comparison', async ({ page }) => {
-  const lastName = `Wizard${Date.now()}`;
+  const lastName = testLastName('Wizard');
 
   await login(page, OWNER);
   const customerUrl = await createCustomer(page, lastName);
@@ -92,7 +93,7 @@ test('walks a full fit from body measurements to a completed comparison', async 
 });
 
 test('resumes an interrupted fit on the step it was left on', async ({ page }) => {
-  const lastName = `Resume${Date.now()}`;
+  const lastName = testLastName('Resume');
 
   await login(page, OWNER);
   await createCustomer(page, lastName);
@@ -119,7 +120,7 @@ test('resumes an interrupted fit on the step it was left on', async ({ page }) =
 });
 
 test('carries the previous fit’s delivered values into the next one', async ({ page }) => {
-  const lastName = `Repeat${Date.now()}`;
+  const lastName = testLastName('Repeat');
 
   await login(page, OWNER);
   const customerUrl = await createCustomer(page, lastName);
@@ -146,7 +147,7 @@ test('carries the previous fit’s delivered values into the next one', async ({
 });
 
 test('rejects an implausible measurement before it reaches the server', async ({ page }) => {
-  const lastName = `Range${Date.now()}`;
+  const lastName = testLastName('Range');
 
   await login(page, OWNER);
   await createCustomer(page, lastName);
