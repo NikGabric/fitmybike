@@ -75,8 +75,15 @@ labels and spirit levels are marked. `--primary-foreground` is therefore the dar
 themes, so the primary button renders near-identically light and dark — an identity anchor.
 
 **Two orange tokens, because one cannot do both jobs.** A fill light enough to carry black text
-is too light to *be* text. `--accent-ink` is the darkened cousin used for links and measured
-values. This is a new token; the rest of the names already exist.
+is too light to *be* text. `--accent-ink` is the darkened cousin used for links on interaction.
+This is a new token; the rest of the names already exist.
+
+*Amended after seeing it rendered:* `--accent-ink` was originally specified for links and
+measured values at rest. On the customers list that produced a column of thirteen orange names,
+which reads as wallpaper rather than as a mark and defeats the one-accent-one-job rule. Links are
+now graphite at rest and take the accent on hover, so a given screen shows the accent about
+twice — the primary button and the active sidebar rail. Measured values carry their emphasis
+through the mono tabular face instead of through colour.
 
 **`--input` is much darker than `--border`.** These are already separate tokens in the current
 file but hold near-identical values. A row separator is decorative and may be faint; an input

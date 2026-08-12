@@ -102,7 +102,9 @@ const onSubmit = handleSubmit((values) => {
       <h1 class="type-display text-lg uppercase tracking-[0.06em]">
         {{ isEdit ? 'Edit customer' : 'New customer' }}
       </h1>
-      <p class="type-eyebrow mt-1 text-muted-foreground">
+      <!-- A sentence, so it stays in the body face. The eyebrow is for short
+           labels; a full line of 11px capitals is work to read. -->
+      <p class="mt-1.5 text-sm text-muted-foreground">
         Measurements are stored in millimetres and grams; enter them in cm and kg.
       </p>
     </header>
