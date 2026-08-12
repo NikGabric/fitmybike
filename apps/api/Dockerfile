@@ -14,6 +14,11 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+# The API's postinstall runs `prisma generate`, so the schema has to be here before
+# the install rather than arriving with the source copy below — otherwise the
+# install fails with no schema to generate from.
+COPY apps/api/prisma apps/api/prisma
+COPY apps/api/prisma.config.ts apps/api/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 # --- build ---
