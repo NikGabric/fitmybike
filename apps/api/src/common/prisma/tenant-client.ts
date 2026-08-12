@@ -5,7 +5,17 @@ import type { PrismaClient } from '@prisma/client';
  * here *and* to TENANT_MODELS in the root eslint.config.js, which lint-blocks raw
  * access to it off the unscoped client.
  */
-const TENANT_MODELS = new Set(['Customer', 'Invitation', 'EmailLog']);
+const TENANT_MODELS = new Set([
+  'Customer',
+  'Invitation',
+  'EmailLog',
+  'Bike',
+  'Fit',
+  'FitBodyMeasurement',
+  'FitBikeMeasurement',
+]);
+// MeasurementDefinition is deliberately absent: it is a global catalog with no
+// organizationId column, and scoping it would filter on a field that does not exist.
 
 /** Operations that accept a `where` clause we can constrain. */
 const WHERE_OPERATIONS = new Set([

@@ -99,11 +99,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof res === 'string'
           ? res
           : ((res as { message?: string | string[] }).message ?? exception.message);
+
+      // Handlers that validate against runtime data rather than a Zod schema — the
+      // measurement catalog, say — can still report per-field errors by throwing
+      // with a `details` payload, and the web client handles them identically.
+      const details =
+        typeof res === 'object' && res !== null
+          ? (res as { details?: Record<string, string[]> }).details
+          : undefined;
+
       return {
         status,
         body: {
           code: this.codeForStatus(status),
           message: Array.isArray(message) ? message.join(', ') : message,
+          ...(details ? { details } : {}),
         },
       };
     }

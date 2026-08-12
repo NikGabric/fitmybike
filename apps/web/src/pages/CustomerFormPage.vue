@@ -67,9 +67,13 @@ const save = useMutation({
           }),
         )
       : unwrap(api.POST('/api/customers', { body: values })),
-  onSuccess: async () => {
+  // Land on the customer rather than back in the list: after creating someone the
+  // next thing a fitter does is add their bike, and after editing, the detail page
+  // is where they came from.
+  onSuccess: async (customer) => {
     await queryClient.invalidateQueries({ queryKey: ['customers'] });
-    await router.push({ name: 'customers' });
+    await queryClient.invalidateQueries({ queryKey: ['customer'] });
+    await router.push({ name: 'customer-detail', params: { id: customer.id } });
   },
   onError: (error: unknown) => {
     if (error instanceof ApiError && error.details) {
@@ -229,7 +233,10 @@ const onSubmit = handleSubmit((values) => {
           <Button type="submit" :disabled="isSubmitting || save.isPending.value" data-testid="save">
             {{ save.isPending.value ? 'Saving…' : 'Save customer' }}
           </Button>
-          <RouterLink :to="{ name: 'customers' }" :class="buttonVariants({ variant: 'outline' })">
+          <RouterLink
+            :to="isEdit ? { name: 'customer-detail', params: { id: props.id } } : { name: 'customers' }"
+            :class="buttonVariants({ variant: 'outline' })"
+          >
             Cancel
           </RouterLink>
         </div>
