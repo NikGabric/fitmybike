@@ -7,6 +7,7 @@ import { Plus, Search, Trash2 } from 'lucide-vue-next';
 import Button from '@/components/ui/Button.vue';
 import Card from '@/components/ui/Card.vue';
 import Input from '@/components/ui/Input.vue';
+import TickRail from '@/components/ui/TickRail.vue';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { api, unwrap } from '@/lib/api';
 
@@ -61,10 +62,10 @@ function confirmRemove(id: string, name: string): void {
 
 <template>
   <div class="mx-auto max-w-5xl">
-    <header class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <header class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-xl font-semibold">Customers</h1>
-        <p class="text-sm text-muted-foreground">
+        <h1 class="type-display text-lg uppercase tracking-[0.06em]">Customers</h1>
+        <p class="type-eyebrow mt-1 text-muted-foreground">
           {{ meta ? `${meta.total} in your studio` : 'Loading…' }}
         </p>
       </div>
@@ -73,6 +74,8 @@ function confirmRemove(id: string, name: string): void {
         New customer
       </RouterLink>
     </header>
+
+    <TickRail class="mb-6" />
 
     <div class="relative mb-4 max-w-xs">
       <Search
@@ -89,11 +92,13 @@ function confirmRemove(id: string, name: string): void {
     </div>
 
     <Card class="overflow-hidden">
-      <p v-if="isPending" class="px-4 py-10 text-center text-sm text-muted-foreground">Loading…</p>
+      <p v-if="isPending" class="type-eyebrow px-4 py-10 text-center text-muted-foreground">
+        Loading…
+      </p>
 
       <p
         v-else-if="isError"
-        class="px-4 py-10 text-center text-sm text-destructive"
+        class="type-data px-4 py-10 text-center text-sm text-destructive"
         data-testid="customers-error"
       >
         {{ error?.message ?? 'Could not load customers' }}
@@ -108,13 +113,13 @@ function confirmRemove(id: string, name: string): void {
       </p>
 
       <table v-else class="w-full text-sm" data-testid="customers-table">
-        <thead class="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+        <thead class="border-b border-border bg-muted/50 text-left text-muted-foreground">
           <tr>
-            <th scope="col" class="px-4 py-2.5 font-medium">Name</th>
-            <th scope="col" class="px-4 py-2.5 font-medium">Contact</th>
-            <th scope="col" class="px-4 py-2.5 font-medium">Height</th>
-            <th scope="col" class="px-4 py-2.5 font-medium">Weight</th>
-            <th scope="col" class="px-4 py-2.5 font-medium"><span class="sr-only">Actions</span></th>
+            <th scope="col" class="type-eyebrow px-4 py-3">Name</th>
+            <th scope="col" class="type-eyebrow px-4 py-3">Contact</th>
+            <th scope="col" class="type-eyebrow px-4 py-3">Height</th>
+            <th scope="col" class="type-eyebrow px-4 py-3">Weight</th>
+            <th scope="col" class="type-eyebrow px-4 py-3"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -126,7 +131,7 @@ function confirmRemove(id: string, name: string): void {
             <td class="px-4 py-3">
               <RouterLink
                 :to="{ name: 'customer-edit', params: { id: customer.id } }"
-                class="font-medium hover:underline"
+                class="font-medium text-accent-ink hover:underline"
               >
                 {{ customer.lastName }}, {{ customer.firstName }}
               </RouterLink>
@@ -134,9 +139,13 @@ function confirmRemove(id: string, name: string): void {
             <td class="px-4 py-3 text-muted-foreground">
               {{ customer.email ?? customer.phone ?? '—' }}
             </td>
-            <!-- Stored in mm; converted only here, at the display edge. -->
-            <td class="px-4 py-3 tabular-nums">{{ formatHeight(customer.heightMm) }}</td>
-            <td class="px-4 py-3 tabular-nums">{{ formatWeight(customer.weightGrams) }}</td>
+            <!-- Stored in mm; converted only here, at the display edge. The
+                 formatted string stays one text node — splitting the unit out
+                 would break the e2e assertion that a row contains "172.5 cm". -->
+            <td class="type-data px-4 py-3" data-testid="height-cell">
+              {{ formatHeight(customer.heightMm) }}
+            </td>
+            <td class="type-data px-4 py-3">{{ formatWeight(customer.weightGrams) }}</td>
             <td class="px-4 py-3 text-right">
               <Button
                 variant="ghost"
@@ -154,7 +163,7 @@ function confirmRemove(id: string, name: string): void {
     </Card>
 
     <div v-if="meta && meta.totalPages > 1" class="mt-4 flex items-center justify-between text-sm">
-      <span class="text-muted-foreground">Page {{ meta.page }} of {{ meta.totalPages }}</span>
+      <span class="type-data text-muted-foreground">Page {{ meta.page }} of {{ meta.totalPages }}</span>
       <div class="flex gap-2">
         <Button variant="outline" size="sm" :disabled="meta.page <= 1" @click="page -= 1">
           Previous
