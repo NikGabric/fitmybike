@@ -18,7 +18,7 @@ import { ApiError } from '@/lib/api';
 import LoginPage from '@/pages/LoginPage.vue';
 
 function mountPage() {
-  return mount(LoginPage, { global: { stubs: { Bike: true } } });
+  return mount(LoginPage, { global: { stubs: { BrandMark: true, TickRail: true } } });
 }
 
 /**
@@ -86,5 +86,15 @@ describe('LoginPage', () => {
     await settle();
 
     expect(wrapper.find('[data-testid="login-error"]').text()).toContain('Could not reach');
+  });
+
+  it('leads with the brand mark rather than a stock glyph', () => {
+    const wrapper = mount(LoginPage);
+    expect(wrapper.findComponent({ name: 'BrandMark' }).exists()).toBe(true);
+  });
+
+  it('rules the card edge with the tick-rail', () => {
+    const wrapper = mount(LoginPage);
+    expect(wrapper.find('.tick-rail').exists()).toBe(true);
   });
 });
