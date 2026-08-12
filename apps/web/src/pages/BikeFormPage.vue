@@ -151,7 +151,7 @@ const onSubmit = handleSubmit((values) => {
               v-model="type"
               v-bind="typeAttrs"
               data-testid="bike-type"
-              class="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex h-9 w-full rounded-card border border-input bg-card px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option v-for="option in bikeTypes" :key="option" :value="option">
                 {{ BIKE_TYPE_LABELS[option] }}
@@ -168,14 +168,14 @@ const onSubmit = handleSubmit((values) => {
             v-model="notes"
             v-bind="notesAttrs"
             rows="4"
-            class="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            class="flex w-full rounded-card border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           ></textarea>
           <FieldError :message="errors.notes" />
         </div>
 
         <p
           v-if="formError"
-          class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          class="rounded-card border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
           data-testid="form-error"
         >

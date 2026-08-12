@@ -5,7 +5,7 @@ defineProps<{ for?: string; class?: string }>();
 </script>
 
 <template>
-  <label :for="$props.for" :class="cn('text-sm font-medium leading-none', $props.class)">
+  <label :for="$props.for" :class="cn('type-eyebrow block text-muted-foreground', $props.class)">
     <slot />
   </label>
 </template>

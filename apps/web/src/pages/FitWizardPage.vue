@@ -468,7 +468,7 @@ const savingLabel = computed(() => {
               v-model="summary"
               rows="4"
               data-testid="fit-summary"
-              class="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              class="flex w-full rounded-card border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             ></textarea>
           </section>
         </div>

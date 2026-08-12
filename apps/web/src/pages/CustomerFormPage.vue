@@ -9,6 +9,7 @@ import Card from '@/components/ui/Card.vue';
 import FieldError from '@/components/ui/FieldError.vue';
 import Input from '@/components/ui/Input.vue';
 import Label from '@/components/ui/Label.vue';
+import TickRail from '@/components/ui/TickRail.vue';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { ApiError, api, unwrap } from '@/lib/api';
 import {
@@ -101,14 +102,18 @@ const onSubmit = handleSubmit((values) => {
 
 <template>
   <div class="mx-auto max-w-2xl">
-    <header class="mb-6">
-      <h1 class="text-xl font-semibold">
+    <header class="mb-4">
+      <h1 class="type-display text-lg uppercase tracking-[0.06em]">
         {{ isEdit ? 'Edit customer' : 'New customer' }}
       </h1>
-      <p class="text-sm text-muted-foreground">
+      <!-- A sentence, so it stays in the body face. The eyebrow is for short
+           labels; a full line of 11px capitals is work to read. -->
+      <p class="mt-1.5 text-sm text-muted-foreground">
         Measurements are stored in millimetres and grams; enter them in cm and kg.
       </p>
     </header>
+
+    <TickRail class="mb-6" />
 
     <p v-if="isEdit && existing.isPending.value" class="text-sm text-muted-foreground">Loading…</p>
 
@@ -165,6 +170,7 @@ const onSubmit = handleSubmit((values) => {
               v-model="dateOfBirth"
               v-bind="dateOfBirthAttrs"
               type="date"
+              mono
               :invalid="Boolean(errors.dateOfBirth)"
             />
             <FieldError :message="errors.dateOfBirth" />
@@ -179,6 +185,7 @@ const onSubmit = handleSubmit((values) => {
                 v-bind="heightCmAttrs"
                 type="number"
                 step="0.1"
+                mono
                 :invalid="Boolean(errors.heightCm)"
                 data-testid="heightCm"
               />
@@ -193,6 +200,7 @@ const onSubmit = handleSubmit((values) => {
                 v-bind="weightKgAttrs"
                 type="number"
                 step="0.1"
+                mono
                 :invalid="Boolean(errors.weightKg)"
               />
               <FieldError :message="errors.weightKg" />
@@ -207,14 +215,14 @@ const onSubmit = handleSubmit((values) => {
             v-model="notes"
             v-bind="notesAttrs"
             rows="4"
-            class="flex w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            class="flex w-full rounded-card border border-input bg-card px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           ></textarea>
           <FieldError :message="errors.notes" />
         </div>
 
         <p
           v-if="formError"
-          class="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          class="type-data rounded-card border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           role="alert"
           data-testid="form-error"
         >

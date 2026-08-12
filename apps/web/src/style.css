@@ -2,35 +2,50 @@
 
 @layer base {
   :root {
-    --background: oklch(99% 0.004 260);
-    --foreground: oklch(21% 0.02 260);
-    --muted: oklch(96% 0.006 260);
-    --muted-foreground: oklch(52% 0.02 260);
-    --card: oklch(100% 0 0);
-    --border: oklch(91% 0.008 260);
-    --input: oklch(91% 0.008 260);
-    --primary: oklch(52% 0.17 258);
-    --primary-foreground: oklch(99% 0.004 260);
-    --destructive: oklch(56% 0.2 25);
-    --destructive-foreground: oklch(99% 0.004 260);
-    --ring: oklch(52% 0.17 258);
-    --radius: 0.6rem;
+    /* The desk the sheet lies on. */
+    --background: oklch(92.5% 0.007 150);
+    /* The sheet itself: lighter than the desk, which is why Card exists. */
+    --card: oklch(98.5% 0.003 150);
+    --foreground: oklch(22% 0.012 150);
+    --muted: oklch(95% 0.006 150);
+    --muted-foreground: oklch(48% 0.012 150);
+    /* A row separator is decorative and may be faint... */
+    --border: oklch(87% 0.008 150);
+    /* ...but an input outline identifies the control, so it clears 3:1. */
+    --input: oklch(58% 0.014 150);
+    /* One accent, one job: a measured value or the thing you are acting on. */
+    --primary: oklch(67% 0.21 42);
+    /* Graphite on hi-viz, like a warning label. White here fails contrast. */
+    --primary-foreground: oklch(22% 0.012 150);
+    /* The orange fill is too light to be text; this is its darkened cousin. */
+    --accent-ink: oklch(52% 0.19 42);
+    /* Hue 20, well clear of the accent at 42, so delete never reads as orange. */
+    --destructive: oklch(50% 0.2 20);
+    --ring: oklch(52% 0.19 42);
+    --radius: 0.1875rem;
+
+    /* One variable font supplies both the display and body roles; only the
+       width axis differs between them. */
+    --font-display: 'Archivo Variable', system-ui, sans-serif;
+    --font-sans: 'Archivo Variable', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --background: oklch(17% 0.015 260);
-      --foreground: oklch(96% 0.006 260);
-      --muted: oklch(23% 0.018 260);
-      --muted-foreground: oklch(69% 0.018 260);
-      --card: oklch(21% 0.018 260);
-      --border: oklch(29% 0.02 260);
-      --input: oklch(29% 0.02 260);
-      --primary: oklch(70% 0.15 258);
-      --primary-foreground: oklch(17% 0.015 260);
-      --destructive: oklch(64% 0.19 25);
-      --destructive-foreground: oklch(17% 0.015 260);
-      --ring: oklch(70% 0.15 258);
+      --background: oklch(19% 0.008 150);
+      --card: oklch(23% 0.009 150);
+      --foreground: oklch(94% 0.005 150);
+      --muted: oklch(27% 0.01 150);
+      --muted-foreground: oklch(68% 0.01 150);
+      --border: oklch(32% 0.012 150);
+      --input: oklch(54% 0.016 150);
+      --primary: oklch(72% 0.19 45);
+      /* Still graphite, so the primary button reads the same in both themes. */
+      --primary-foreground: oklch(19% 0.008 150);
+      --accent-ink: oklch(76% 0.16 50);
+      --destructive: oklch(66% 0.19 22);
+      --ring: oklch(72% 0.19 45);
     }
   }
 
@@ -41,6 +56,7 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 }
@@ -55,8 +71,87 @@
   --color-input: var(--input);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent-ink: var(--accent-ink);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-ring: var(--ring);
   --radius-card: var(--radius);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer components {
+  /* Wordmark and page titles. */
+  .type-display {
+    font-family: var(--font-display);
+    font-stretch: 125%;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Field labels and table headers. Capitals come from CSS so the DOM keeps
+     sentence case for screen readers and for text-matching tests. */
+  .type-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Every number in the app. Tabular figures keep measurement columns aligned. */
+  .type-data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The signature: a millimetre rule. Short tick every 4px, tall every fifth.
+     The unit is the product's own, which is why this earns its place rather
+     than decorating. Used in exactly three places — page headers, the login
+     card edge, and the active sidebar item. */
+  .tick-rail {
+    height: 6px;
+    background-repeat: repeat-x;
+    background-position: bottom left;
+    background-image:
+      repeating-linear-gradient(to right, var(--input) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(to right, var(--border) 0 1px, transparent 1px 4px);
+    background-size:
+      100% 6px,
+      100% 3px;
+  }
+
+  .tick-rail-vertical {
+    height: auto;
+    width: 6px;
+    background-repeat: repeat-y;
+    background-position: top right;
+    background-image:
+      repeating-linear-gradient(to bottom, var(--input) 0 1px, transparent 1px 20px),
+      repeating-linear-gradient(to bottom, var(--border) 0 1px, transparent 1px 4px);
+    background-size:
+      6px 100%,
+      3px 100%;
+  }
+
+  /* Sidebar item. The active one grows an orange tick-rail on its left edge:
+     the accent marks the thing you are on, which is its one job. */
+  .nav-item {
+    position: relative;
+  }
+
+  .nav-item.is-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.375rem;
+    bottom: 0.375rem;
+    width: 3px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      var(--primary) 0 1px,
+      transparent 1px 4px
+    );
+  }
 }
