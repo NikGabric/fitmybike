@@ -125,7 +125,7 @@ function confirmRemove(id: string, name: string): void {
           >
             <td class="px-4 py-3">
               <RouterLink
-                :to="{ name: 'customer-edit', params: { id: customer.id } }"
+                :to="{ name: 'customer-detail', params: { id: customer.id } }"
                 class="font-medium hover:underline"
               >
                 {{ customer.lastName }}, {{ customer.firstName }}

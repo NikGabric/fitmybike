@@ -5,13 +5,13 @@ guided through a fit, and email the customer their measurements and resources at
 are the only users — customers have no accounts and never log in. Organizations are invite-only;
 there is no public signup.
 
-**Built so far (Phase 0):** session auth, the customers module, the shared-schema/OpenAPI contract,
-Docker images and CI.
+**Built so far:** session auth, the customers module, the shared-schema/OpenAPI contract, Docker
+images and CI (Phase 0); plus bikes, the measurement definition catalog, and the guided fit session
+with its four-step wizard.
 
-**Not built yet — do not go looking for it:** the guided fit session (`Fit`/`FitStage`), the
-measurement definition catalog, photo and video upload, PDF fit sheets, shareable customer report
-links, the resource library, and email sending. `EmailLog` exists as an empty outbox table with no
-sender behind it.
+**Not built yet — do not go looking for it:** photo and video upload, PDF fit sheets, shareable
+customer report links, the resource library, and email sending. `EmailLog` exists as an empty outbox
+table with no sender behind it.
 
 `README.md` describes the architecture. This file covers what is non-obvious, easy to break
 silently, or would otherwise be rediscovered the hard way.
@@ -119,3 +119,29 @@ These produce no error — they just quietly do the wrong thing.
   which reads as the form simply not submitting. Numeric form fields accept `string | number`.
 - **`db:*` scripts wrap `dotenv -e .env`** and are for local use. CI has no `.env`; it uses
   `db:deploy`, which does not.
+- **The measurement catalog syncs on API boot**, from `MEASUREMENT_DEFINITIONS` in
+  `packages/shared`, not from a migration or `prisma/seed.ts`. `apps/api/test/global-setup.ts`
+  rebuilds the test database with `prisma db push --force-reset`, which runs neither — seed it
+  either of those ways and it is silently absent under `pnpm test`. A key removed from the shared
+  array is retired, not deleted, so old fits keep resolving their labels.
+- **Autosaving endpoints must be idempotent.** The fit wizard saves on a debounce *and* on blur, so
+  overlapping batches hit the same rows. `deleteMany` + `createMany` in a transaction loses one of
+  them to a unique violation; the measurement endpoints upsert in `definitionId` order instead.
+  Anything else that autosaves needs the same treatment.
+- **A mutation's `onError` must reach a visible failure state.** Reporting only Zod `details` left
+  the wizard showing "Saved" after a 409, which is worse than showing nothing.
+
+## Fit measurements
+
+`Fit` records one session against one `Bike`. Values live in two tables, not one:
+
+- `FitBodyMeasurement` — one `value`, no stage. A fit changes the bike, not the person on it.
+- `FitBikeMeasurement` — a `stage` (`BEFORE`/`AFTER`) plus a `value`.
+
+`FitStage` is `BEFORE`/`AFTER` **only**. The wizard's resume pointer is a separate `FitStep`
+(`BODY`/`BIKE_BEFORE`/`BIKE_AFTER`/`REVIEW`) and is a UI concern — the step-to-(category, stage)
+mapping lives in `FitWizardPage.vue` and nowhere else.
+
+Units are integers in the unit the catalog names: `MM`, `DECIMILLIMETRE` (tenths of a mm — stock
+cranks are 172.5), `DECIDEGREE` (tenths of a degree), `GRAM`. Fit measurements display in mm, not
+cm; `formatHeight` still renders a rider's body height in cm.

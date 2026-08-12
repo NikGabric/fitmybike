@@ -22,6 +22,52 @@ enum EmailStatus {
   FAILED
 }
 
+enum BikeType {
+  ROAD
+  TT
+  GRAVEL
+  MTB
+  OTHER
+}
+
+enum FitStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// The two snapshots of the bike, and the only thing a bike measurement is tagged
+/// with. Nothing else belongs in here — measuring the rider's body is not a stage
+/// of the fit, it is a step in the fitter's workflow. See FitStep.
+enum FitStage {
+  BEFORE
+  AFTER
+}
+
+/// The wizard's resume pointer: which screen the fitter was last on. Purely a UI
+/// concern, deliberately kept apart from FitStage.
+enum FitStep {
+  BODY
+  BIKE_BEFORE
+  BIKE_AFTER
+  REVIEW
+}
+
+enum MeasurementCategory {
+  BODY
+  BIKE
+}
+
+/// Names what is *stored*, not what is displayed. DECIDEGREE is tenths of a degree
+/// (72.5° is the integer 725) and DECIMILLIMETRE tenths of a millimetre (a 172.5mm
+/// crank is 1725), so the integers-only rule holds for every measurement without a
+/// floating-point exception anywhere.
+enum MeasurementUnit {
+  MM
+  DECIMILLIMETRE
+  DECIDEGREE
+  GRAM
+}
+
 model Organization {
   id        String   @id @default(uuid(7))
   name      String
@@ -29,10 +75,14 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users       User[]
-  invitations Invitation[]
-  customers   Customer[]
-  emailLogs   EmailLog[]
+  users               User[]
+  invitations         Invitation[]
+  customers           Customer[]
+  emailLogs           EmailLog[]
+  bikes               Bike[]
+  fits                Fit[]
+  fitBodyMeasurements FitBodyMeasurement[]
+  fitBikeMeasurements FitBikeMeasurement[]
 
   @@map("organizations")
 }
@@ -53,6 +103,8 @@ model User {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sessions         Session[]
   createdCustomers Customer[]   @relation("CustomerCreatedBy")
+  createdBikes     Bike[]       @relation("BikeCreatedBy")
+  createdFits      Fit[]        @relation("FitCreatedBy")
 
   @@index([organizationId])
   @@map("users")
@@ -113,10 +165,139 @@ model Customer {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User         @relation("CustomerCreatedBy", fields: [createdById], references: [id])
+  bikes        Bike[]
+  fits         Fit[]
 
   @@index([organizationId, deletedAt])
   @@index([organizationId, lastName, firstName])
   @@map("customers")
+}
+
+/// A customer's bike. Its own record rather than fields on a fit, so the same frame
+/// fitted again in two years links back to what it was set to last time.
+model Bike {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  customerId     String
+  brand          String?
+  model          String?
+  sizeLabel      String?
+  type           BikeType  @default(ROAD)
+  notes          String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("BikeCreatedBy", fields: [createdById], references: [id])
+  fits         Fit[]
+
+  @@index([organizationId, customerId, deletedAt])
+  @@map("bikes")
+}
+
+/// The measurement catalog. Global, NOT tenant-scoped: every studio measures the same
+/// things, and keeping it out of TENANT_MODELS is deliberate — forOrg() would try to
+/// filter on an organizationId this table does not have.
+///
+/// Mirrors MEASUREMENT_DEFINITIONS in packages/shared, synced on API boot. Never
+/// delete a row that a fit might reference; set retiredAt instead.
+model MeasurementDefinition {
+  id        String              @id @default(uuid(7))
+  key       String              @unique
+  label     String
+  category  MeasurementCategory
+  unit      MeasurementUnit
+  minValue  Int
+  maxValue  Int
+  helpText  String?
+  sortOrder Int
+  retiredAt DateTime?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  bodyMeasurements FitBodyMeasurement[]
+  bikeMeasurements FitBikeMeasurement[]
+
+  @@index([category, sortOrder])
+  @@map("measurement_definitions")
+}
+
+/// One fitting session: a rider, a bike, and everything measured on the day.
+model Fit {
+  id             String    @id @default(uuid(7))
+  organizationId String
+  customerId     String
+  bikeId         String
+  status         FitStatus @default(IN_PROGRESS)
+  currentStep    FitStep   @default(BODY)
+  reason         String?
+  summary        String?
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization     Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer         Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bike             Bike                 @relation(fields: [bikeId], references: [id], onDelete: Cascade)
+  createdBy        User                 @relation("FitCreatedBy", fields: [createdById], references: [id])
+  bodyMeasurements FitBodyMeasurement[]
+  bikeMeasurements FitBikeMeasurement[]
+
+  @@index([organizationId, customerId, deletedAt])
+  @@index([organizationId, bikeId, status])
+  @@map("fits")
+}
+
+/// The rider, measured once per fit. One value and no stage: a body does not have a
+/// "before" and an "after" — the fit changes the bike, not the person on it.
+model FitBodyMeasurement {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  fitId          String
+  definitionId   String
+  value          Int
+  note           String?
+  /// Carried over from the customer's previous fit rather than measured today.
+  prefilled      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fit          Fit                   @relation(fields: [fitId], references: [id], onDelete: Cascade)
+  definition   MeasurementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([fitId, definitionId])
+  @@index([organizationId, fitId])
+  @@map("fit_body_measurements")
+}
+
+/// The bike, measured twice per fit — once as it arrived, once as delivered.
+model FitBikeMeasurement {
+  id             String   @id @default(uuid(7))
+  organizationId String
+  fitId          String
+  definitionId   String
+  stage          FitStage
+  value          Int
+  note           String?
+  /// Carried over from the previous fit on this bike rather than measured today.
+  prefilled      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fit          Fit                   @relation(fields: [fitId], references: [id], onDelete: Cascade)
+  definition   MeasurementDefinition @relation(fields: [definitionId], references: [id])
+
+  @@unique([fitId, definitionId, stage])
+  @@index([organizationId, fitId])
+  @@map("fit_bike_measurements")
 }
 
 /// Outbox. Unused in Phase 0 — every future send writes a row here with a snapshot

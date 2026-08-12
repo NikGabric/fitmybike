@@ -1,5 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Prisma } from '@prisma/client';
+import { MEASUREMENT_DEFINITIONS } from '@fitmybike/shared';
 import * as argon2 from 'argon2';
 import { config as loadEnv } from 'dotenv';
 
@@ -43,8 +44,159 @@ const ORGS = [
   },
 ] as const;
 
+/**
+ * A fit that has already happened, so the app has history to show on a fresh
+ * install: what the bike arrived at, and what it left at.
+ */
+const DEMO_BODY = {
+  inseam: 850,
+  torso_length: 600,
+  arm_length: 655,
+  shoulder_width: 430,
+  foot_length: 275,
+  sternal_notch_height: 1480,
+  forward_flexion: 750,
+} as const;
+
+const DEMO_BIKE: Record<string, { before: number; after: number }> = {
+  saddle_height: { before: 720, after: 735 },
+  saddle_setback: { before: 65, after: 55 },
+  saddle_angle: { before: 0, after: -15 },
+  saddle_nose_to_bar: { before: 520, after: 530 },
+  saddle_to_bar_drop: { before: 60, after: 45 },
+  stem_length: { before: 100, after: 110 },
+  spacer_stack: { before: 20, after: 10 },
+  bar_width: { before: 420, after: 420 },
+  crank_length: { before: 1725, after: 1725 },
+};
+
+/**
+ * The catalog normally syncs when the API boots. The seed runs standalone, so it
+ * mirrors the same shared array — otherwise `db:seed` on a fresh database would have
+ * no definitions to hang its demo fit off.
+ */
+async function seedCatalog(): Promise<Map<string, string>> {
+  for (const definition of MEASUREMENT_DEFINITIONS) {
+    const fields = {
+      label: definition.label,
+      category: definition.category,
+      unit: definition.unit,
+      minValue: definition.minValue,
+      maxValue: definition.maxValue,
+      helpText: 'helpText' in definition ? definition.helpText : null,
+      sortOrder: definition.sortOrder,
+      retiredAt: null,
+    };
+    await prisma.measurementDefinition.upsert({
+      where: { key: definition.key },
+      update: fields,
+      create: { key: definition.key, ...fields },
+    });
+  }
+
+  const rows = await prisma.measurementDefinition.findMany({ select: { id: true, key: true } });
+  return new Map(rows.map((row) => [row.key, row.id]));
+}
+
+async function seedFits(
+  organizationId: string,
+  ownerId: string,
+  customerId: string,
+  definitionIds: Map<string, string>,
+): Promise<void> {
+  const existing = await prisma.bike.findFirst({ where: { customerId }, select: { id: true } });
+  if (existing) return;
+
+  const roadBike = await prisma.bike.create({
+    data: {
+      organizationId,
+      customerId,
+      createdById: ownerId,
+      brand: 'Canyon',
+      model: 'Ultimate CF SL',
+      sizeLabel: '56',
+      type: 'ROAD',
+      notes: 'Shimano 105, 172.5 cranks.',
+    },
+  });
+
+  await prisma.bike.create({
+    data: {
+      organizationId,
+      customerId,
+      createdById: ownerId,
+      brand: 'Open',
+      model: 'U.P.',
+      sizeLabel: 'L',
+      type: 'GRAVEL',
+    },
+  });
+
+  const completedAt = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+  await prisma.fit.create({
+    data: {
+      organizationId,
+      customerId,
+      bikeId: roadBike.id,
+      createdById: ownerId,
+      status: 'COMPLETED',
+      currentStep: 'REVIEW',
+      reason: 'Numbness in left hand after three hours.',
+      summary:
+        'Raised the saddle 15mm and shortened the effective reach by dropping a spacer and levelling the saddle. Revisit in three months.',
+      startedAt: completedAt,
+      completedAt,
+      bodyMeasurements: {
+        create: Object.entries(DEMO_BODY).flatMap(([key, value]) => {
+          const definitionId = definitionIds.get(key);
+          return definitionId ? [{ organizationId, definitionId, value }] : [];
+        }),
+      },
+      bikeMeasurements: {
+        create: Object.entries(DEMO_BIKE).flatMap(([key, { before, after }]) => {
+          const definitionId = definitionIds.get(key);
+          if (!definitionId) return [];
+          return [
+            { organizationId, definitionId, stage: 'BEFORE' as const, value: before },
+            { organizationId, definitionId, stage: 'AFTER' as const, value: after },
+          ];
+        }),
+      },
+    },
+  });
+
+  // A second, unfinished fit so there is something to land mid-wizard on.
+  await prisma.fit.create({
+    data: {
+      organizationId,
+      customerId,
+      bikeId: roadBike.id,
+      createdById: ownerId,
+      status: 'IN_PROGRESS',
+      currentStep: 'BIKE_BEFORE',
+      reason: 'Follow-up after new shoes.',
+      bodyMeasurements: {
+        create: Object.entries(DEMO_BODY).flatMap(([key, value]) => {
+          const definitionId = definitionIds.get(key);
+          return definitionId ? [{ organizationId, definitionId, value, prefilled: true }] : [];
+        }),
+      },
+      bikeMeasurements: {
+        create: Object.entries(DEMO_BIKE).flatMap(([key, { after }]) => {
+          const definitionId = definitionIds.get(key);
+          return definitionId
+            ? [{ organizationId, definitionId, stage: 'BEFORE' as const, value: after, prefilled: true }]
+            : [];
+        }),
+      },
+    },
+  });
+}
+
 async function main(): Promise<void> {
   const passwordHash = await argon2.hash(DEFAULT_PASSWORD, { type: argon2.argon2id });
+  const definitionIds = await seedCatalog();
 
   for (const org of ORGS) {
     const organization = await prisma.organization.upsert({
@@ -103,6 +255,24 @@ async function main(): Promise<void> {
         notes: customer.notes,
       };
       await prisma.customer.create({ data });
+    }
+
+    // The first customer of each organization gets bikes and fit history. Both orgs
+    // get them on purpose: a tenant leak in the fits module is only visible when
+    // there is a second studio's fit to leak.
+    const firstCustomer = org.customers[0];
+    if (firstCustomer) {
+      const customer = await prisma.customer.findFirst({
+        where: {
+          organizationId: organization.id,
+          firstName: firstCustomer.firstName,
+          lastName: firstCustomer.lastName,
+        },
+        select: { id: true },
+      });
+      if (customer) {
+        await seedFits(organization.id, owner.id, customer.id, definitionIds);
+      }
     }
 
     console.log(`Seeded ${org.name} (${org.customers.length} customers)`);

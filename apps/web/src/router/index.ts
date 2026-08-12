@@ -25,8 +25,32 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'customers/:id',
+        name: 'customer-detail',
+        component: () => import('@/pages/CustomerDetailPage.vue'),
+        props: true,
+      },
+      {
+        path: 'customers/:id/edit',
         name: 'customer-edit',
         component: () => import('@/pages/CustomerFormPage.vue'),
+        props: true,
+      },
+      {
+        path: 'customers/:customerId/bikes/new',
+        name: 'bike-new',
+        component: () => import('@/pages/BikeFormPage.vue'),
+        props: true,
+      },
+      {
+        path: 'bikes/:id/edit',
+        name: 'bike-edit',
+        component: () => import('@/pages/BikeFormPage.vue'),
+        props: true,
+      },
+      {
+        path: 'fits/:id',
+        name: 'fit',
+        component: () => import('@/pages/FitWizardPage.vue'),
         props: true,
       },
     ],

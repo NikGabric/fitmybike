@@ -6,7 +6,15 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
 /** Tenant-scoped Prisma models: these must always be reached through `forOrg()`. */
-const TENANT_MODELS = ['customer', 'invitation', 'emailLog'];
+const TENANT_MODELS = [
+  'customer',
+  'invitation',
+  'emailLog',
+  'bike',
+  'fit',
+  'fitBodyMeasurement',
+  'fitBikeMeasurement',
+];
 
 export default tseslint.config(
   {

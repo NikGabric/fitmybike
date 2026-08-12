@@ -1,27 +1,15 @@
 import { z } from 'zod';
 import { cmToMm, gramsToKg, kgToGrams, mmToCm, type Customer } from '@fitmybike/shared';
+import { numericField } from '@/lib/form-fields';
 
 /**
  * The form talks centimetres and kilograms because that is what a fitter writes on
  * a sheet. The API only ever sees millimetres and grams. Conversion lives here, at
  * the boundary, and nowhere else.
  *
- * Text fields are strings. The measurement fields accept string OR number, because
- * Vue applies number casting to `v-model` on `<input type="number">` implicitly —
- * a bare z.string() there rejects every value the user types with "expected string,
- * received number". Clearing the input yields '' again, hence the union.
- *
- * z.coerce is avoided throughout: it infers an `unknown` input type, which poisons
- * the form bindings.
+ * `numericField` lives in @/lib/form-fields — see there for why numeric fields
+ * accept `string | number` and why z.coerce is avoided.
  */
-const numericField = (min: number, max: number, message: string) =>
-  z
-    .union([z.string(), z.number()])
-    .refine((value) => {
-      if (value === '') return true;
-      const parsed = Number(value);
-      return Number.isFinite(parsed) && parsed >= min && parsed <= max;
-    }, message);
 
 export const customerFormSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required').max(100),
