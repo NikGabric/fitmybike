@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { testLastName } from './support';
 
 const OWNER = { email: 'owner@fitmybike.test', password: 'changeme123' };
 const OTHER_ORG_OWNER = { email: 'owner@alpinelab.test', password: 'changeme123' };
@@ -27,8 +28,7 @@ test('redirects an anonymous visitor to login', async ({ page }) => {
 });
 
 test('creates, edits and archives a customer', async ({ page }) => {
-  const stamp = Date.now();
-  const lastName = `E2E${stamp}`;
+  const lastName = testLastName('Customer');
 
   await login(page, OWNER);
   await expect(page.getByTestId('customers-table')).toContainText('Horvat');

@@ -6,6 +6,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 export default defineConfig({
   testDir: './e2e',
+  // The suite runs against the seeded dev database, so it removes its own rows
+  // before and after — see e2e/global-hooks.ts.
+  globalSetup: './e2e/global-hooks.ts',
+  globalTeardown: './e2e/global-hooks.ts',
   fullyParallel: false,
   workers: 1,
   retries: process.env['CI'] ? 2 : 0,
