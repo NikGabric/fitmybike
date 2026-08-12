@@ -2,35 +2,44 @@
 
 @layer base {
   :root {
-    --background: oklch(99% 0.004 260);
-    --foreground: oklch(21% 0.02 260);
-    --muted: oklch(96% 0.006 260);
-    --muted-foreground: oklch(52% 0.02 260);
-    --card: oklch(100% 0 0);
-    --border: oklch(91% 0.008 260);
-    --input: oklch(91% 0.008 260);
-    --primary: oklch(52% 0.17 258);
-    --primary-foreground: oklch(99% 0.004 260);
-    --destructive: oklch(56% 0.2 25);
-    --destructive-foreground: oklch(99% 0.004 260);
-    --ring: oklch(52% 0.17 258);
-    --radius: 0.6rem;
+    /* The desk the sheet lies on. */
+    --background: oklch(92.5% 0.007 150);
+    /* The sheet itself: lighter than the desk, which is why Card exists. */
+    --card: oklch(98.5% 0.003 150);
+    --foreground: oklch(22% 0.012 150);
+    --muted: oklch(95% 0.006 150);
+    --muted-foreground: oklch(48% 0.012 150);
+    /* A row separator is decorative and may be faint... */
+    --border: oklch(87% 0.008 150);
+    /* ...but an input outline identifies the control, so it clears 3:1. */
+    --input: oklch(58% 0.014 150);
+    /* One accent, one job: a measured value or the thing you are acting on. */
+    --primary: oklch(67% 0.21 42);
+    /* Graphite on hi-viz, like a warning label. White here fails contrast. */
+    --primary-foreground: oklch(22% 0.012 150);
+    /* The orange fill is too light to be text; this is its darkened cousin. */
+    --accent-ink: oklch(52% 0.19 42);
+    /* Hue 20, well clear of the accent at 42, so delete never reads as orange. */
+    --destructive: oklch(50% 0.2 20);
+    --ring: oklch(52% 0.19 42);
+    --radius: 0.1875rem;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --background: oklch(17% 0.015 260);
-      --foreground: oklch(96% 0.006 260);
-      --muted: oklch(23% 0.018 260);
-      --muted-foreground: oklch(69% 0.018 260);
-      --card: oklch(21% 0.018 260);
-      --border: oklch(29% 0.02 260);
-      --input: oklch(29% 0.02 260);
-      --primary: oklch(70% 0.15 258);
-      --primary-foreground: oklch(17% 0.015 260);
-      --destructive: oklch(64% 0.19 25);
-      --destructive-foreground: oklch(17% 0.015 260);
-      --ring: oklch(70% 0.15 258);
+      --background: oklch(19% 0.008 150);
+      --card: oklch(23% 0.009 150);
+      --foreground: oklch(94% 0.005 150);
+      --muted: oklch(27% 0.01 150);
+      --muted-foreground: oklch(68% 0.01 150);
+      --border: oklch(32% 0.012 150);
+      --input: oklch(54% 0.016 150);
+      --primary: oklch(72% 0.19 45);
+      /* Still graphite, so the primary button reads the same in both themes. */
+      --primary-foreground: oklch(19% 0.008 150);
+      --accent-ink: oklch(76% 0.16 50);
+      --destructive: oklch(66% 0.19 22);
+      --ring: oklch(72% 0.19 45);
     }
   }
 
@@ -55,8 +64,8 @@
   --color-input: var(--input);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-accent-ink: var(--accent-ink);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-ring: var(--ring);
   --radius-card: var(--radius);
 }
