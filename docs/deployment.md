@@ -237,19 +237,19 @@ is a blocker rather than a nicety.
    account is therefore unlimited, and this repository is public, so the seeded addresses
    and the login route are published alongside it. On staging a generated `SEED_PASSWORD`
    is the whole defence. Production accounts will have passwords people chose themselves,
-   which is a materially weaker assumption. Note this compounds with `session.ip` being
-   wrong under [Known limitations](#known-limitations): per-IP throttling cannot be built
-   correctly until `trust proxy` is set.
+   which is a materially weaker assumption. The prerequisite is now in place —
+   `configure-app.ts` sets `trust proxy`, so `request.ip` is the real client and can be
+   keyed on.
 
 Monitoring and log shipping are worth adding around the same time, but they are not
 gates in the way these four are.
 
 ## Known limitations
 
-- **`session.ip` records the wrong address.** Two proxies sit in front of the API and
-  `main.ts` sets no `trust proxy`, so sessions record the nginx container's address
-  rather than the visitor's. Harmless on staging; wrong if those records are ever used
-  for security, which is a production concern.
+- **Sessions recorded before `trust proxy` landed hold the wrong address.** Two proxies
+  sit in front of the API, so until `configure-app.ts` set `trust proxy` every session
+  stored the nginx container's address rather than the visitor's. New sessions are
+  correct; existing rows were never backfilled, and on staging are not worth backfilling.
 - **Seeded demo data is publicly reachable.** The customers are invented, but anyone who
   finds the hostname reaches a login page. `SEED_PASSWORD` is what stands between them
   and the demo records, so make it a real password.

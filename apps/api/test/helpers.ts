@@ -3,19 +3,22 @@ import type { INestApplication } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, type Role } from '@prisma/client';
 import * as argon2 from 'argon2';
-import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 export const TEST_PASSWORD = 'test-password-123';
 
-/** Mirrors main.ts so tests exercise the same middleware and prefix as production. */
+/**
+ * Uses the same `configureApp` as main.ts, rather than repeating its setup here — a
+ * copy drifts, and the tests would then pass against an app production never runs.
+ */
 export async function createTestApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
-  const app = moduleRef.createNestApplication();
-  app.setGlobalPrefix('api');
-  app.use(cookieParser());
+  const app = moduleRef.createNestApplication<NestExpressApplication>();
+  configureApp(app);
   await app.init();
   return app;
 }
