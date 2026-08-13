@@ -561,6 +561,19 @@ curl -fsSL https://get.docker.com | sh
 docker compose version
 ```
 
+If `DEPLOY_USER` is not root, it needs the docker group or every deploy fails on a
+socket permission error:
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+Log out and back in, then confirm it took effect without `sudo`:
+
+```bash
+docker ps
+```
+
 - [ ] **Step 3: Create the deploy directory and its three files**
 
 The server holds no source. On the VPS:
@@ -609,19 +622,34 @@ ssh-copy-id -i ~/.ssh/fitmybike-staging.pub <user>@<vps-ip>
 
 - [ ] **Step 6: Create the GitHub Environment and its secrets**
 
-In the repository: **Settings → Environments → New environment → `staging`**. Add three environment secrets:
+In the repository: **Settings → Environments → New environment → `staging`**. Add four environment secrets:
 
 | Secret | Value |
 | --- | --- |
 | `DEPLOY_HOST` | the VPS IP or hostname |
 | `DEPLOY_USER` | the SSH user |
 | `DEPLOY_SSH_KEY` | contents of `~/.ssh/fitmybike-staging` (the **private** key) |
+| `DEPLOY_HOST_FINGERPRINT` | output of `ssh-keyscan -t ed25519 <vps-ip>` |
 
-Do not create a `production` environment yet — production is blocked on organization onboarding, and an environment with no host would fail loudly on the first merge to `main`.
+The fingerprint pins the server's host key. Without it the SSH step accepts whatever key
+it is offered, so anyone who can answer on `DEPLOY_HOST` — via DNS or a reassigned IP —
+gets a session with your deploy key in it.
 
-- [ ] **Step 7: Make the GHCR packages public**
+Do not create a `production` environment yet. Production is blocked on organization onboarding, and the deploy job is gated to `staging` until that changes.
 
-After the first successful deploy run has pushed them, open each package under your GitHub profile → **Packages** → `fitmybike-api` and `fitmybike-web` → **Package settings** → **Change visibility** → Public. Otherwise the VPS needs a registry token, which is a credential to rotate for no benefit on a demo box.
+- [ ] **Step 7: Promote `deploy.yml` to `main`**
+
+The deploy workflow cannot fire while it exists only on `staging` — GitHub dispatches
+`workflow_run` from the default branch's copy, and the default branch is `main`. Merge
+the deployment PR into `staging`, then immediately open and merge the promotion PR
+`staging` → `main` using a **merge commit, not a squash**.
+
+That promotion deploys nothing: the job is gated to `head_branch == 'staging'` while
+production is blocked. It exists only to put the workflow where GitHub will look for it.
+
+Nothing needs doing about GHCR visibility — the deploy logs the host in with the
+workflow's own token, so the packages stay private and the box holds no registry
+credential.
 
 - [ ] **Step 8: Merge and watch the first deploy**
 

@@ -56,8 +56,8 @@ origin would have to be given up.
 - A VPS with Docker and the compose plugin. A Hetzner CX22 or equivalent is oversized.
 - A domain, with an **A record pointing at the VPS before first boot**. Caddy cannot get
   a certificate for a name that does not resolve to it.
-- The GHCR packages published from CI (`fitmybike-api`, `fitmybike-web`) set to public,
-  so the server needs no registry credentials.
+- Nothing else. The deploy logs the host into GHCR with the workflow's own token, so the
+  packages can stay private and there is no registry credential to store on the box.
 
 ## One-time server setup
 
@@ -76,6 +76,9 @@ The server holds no source. It needs three files in one directory:
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | generated | The default `fitmybike` is a development convenience. |
 | `APP_URL` | `https://fit.example.com` | The public HTTPS URL. Never derived from the Host header. |
+| `SITE_ADDRESS` | `https://fit.example.com` | What Caddy serves. **`.env.example` ships `:80` for the local dry run** — leave that in place on a server and you get no TLS, nothing on 443, and a login that fails silently because `Secure` cookies cannot travel over HTTP. Must always match `APP_URL`. |
+| `CADDY_HTTP_PORT` | `80` | `.env.example` ships `8080`, which is right locally and wrong on a server: ACME's HTTP challenge needs port 80. |
+| `CADDY_HTTPS_PORT` | `443` | `.env.example` ships `8443`. |
 | `SEED_PASSWORD` | chosen by you | The owner password the seed creates. Without it you get `changeme123` on a public URL. |
 
 `NODE_ENV=production` is baked into the image and is what turns on `Secure` session
@@ -105,6 +108,24 @@ not a deploy step. Log in as `owner@fitmybike.test` with the `SEED_PASSWORD` you
 **Staging only.** Production must never be seeded: the seed creates fictional studios
 and customers, and its accounts have a password you have written down somewhere.
 
+## Bootstrapping the pipeline
+
+**The deploy workflow will not fire until `deploy.yml` exists on `main`.** GitHub only
+dispatches `workflow_run` for the copy of a workflow on the repository's default branch,
+and the default branch is `main`. While the file exists only on `staging`, CI goes green
+and nothing happens — no run, no error, nothing to notice.
+
+So the first time only, in this order:
+
+1. Merge the deployment PR into `staging`.
+2. Immediately open and merge the promotion PR `staging` → `main` (merge commit, not
+   squash). This carries `deploy.yml` onto the default branch. It does not deploy
+   anything: the job is gated to `head_branch == 'staging'` while production is blocked.
+3. From then on, merges into `staging` deploy to the demo box.
+
+A consequence worth remembering: it is always **main's copy** of `deploy.yml` that runs.
+Editing the deploy workflow on `staging` changes nothing until it is promoted.
+
 ## Ongoing deploys
 
 Merging does not deploy. The deploy workflow triggers on the **CI workflow completing
@@ -116,10 +137,18 @@ CI green on main    → build images → push ghcr :<sha> and :latest  → ssh p
 ```
 
 Secrets are scoped to GitHub Environments named `staging` and `production`, so both
-environments use the same three names and the workflow needs no branching logic:
-`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. Keys are per-host, so a compromised
-staging key does not reach production. Giving `production` a required reviewer later
-is a settings change, not a workflow change.
+environments use the same names and the workflow needs no branching logic:
+`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, and `DEPLOY_HOST_FINGERPRINT`. Keys are
+per-host, so a compromised staging key does not reach production. Giving `production` a
+required reviewer later is a settings change, not a workflow change.
+
+`DEPLOY_HOST_FINGERPRINT` pins the server's host key. Without it the SSH step accepts
+any key it is offered, so whoever manages to answer on `DEPLOY_HOST` receives a session
+with the deploy key in it. Generate with `ssh-keyscan -t ed25519 <host>`.
+
+The deploy also refreshes `compose.yaml` and the `Caddyfile` on the server from the
+commit being deployed. Without that, a change to either would deploy nowhere and warn
+about nothing — the running stack would drift from the repository silently.
 
 ## Rollback
 

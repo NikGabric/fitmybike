@@ -34,6 +34,11 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-fmb_session}
       SESSION_TTL_DAYS: ${SESSION_TTL_DAYS:-30}
       APP_URL: ${APP_URL:?set APP_URL}
+      # Read by `docker compose exec api pnpm seed`. Compose's .env is used for
+      # interpolation only and is NOT injected into containers, so without this line
+      # the seed falls back to changeme123 — on a public host, and unfixable by
+      # re-seeding, because the seed never updates an existing password.
+      SEED_PASSWORD: ${SEED_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
