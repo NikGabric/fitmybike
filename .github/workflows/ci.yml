@@ -3,7 +3,9 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # Both deployable branches. Without staging here, merging to it runs no CI and
+    # the deploy workflow — which triggers on a completed CI run — never fires.
+    branches: [main, staging]
 
 # A superseded run tells you nothing useful.
 concurrency:
