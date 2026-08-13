@@ -1,0 +1,92 @@
+name: Deploy
+
+# Triggered by CI finishing, not by the push itself: a push-triggered deploy would
+# ship commits whose tests never ran, which defeats the gate CI exists to provide.
+# `workflows` must match the CI workflow's `name:` exactly or this silently never
+# fires.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [staging, main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # `types: [completed]` fires for failures too.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    # Secrets are scoped per environment, so both use the same names and production
+    # can be given a required reviewer without touching this file.
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+
+    steps:
+      # Check out the exact commit CI passed on, not the branch tip, which may
+      # already have moved.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nikgabric/fitmybike-api:${{ env.SHA }}
+            ghcr.io/nikgabric/fitmybike-api:${{ env.BRANCH }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nikgabric/fitmybike-web:${{ env.SHA }}
+            ghcr.io/nikgabric/fitmybike-web:${{ env.BRANCH }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: SHA
+          script: |
+            set -e
+            cd /opt/fitmybike
+            # Persist the tag so a reboot brings back the same version rather than
+            # whatever `latest` points at.
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${SHA}|" .env
+            else
+              echo "IMAGE_TAG=${SHA}" >> .env
+            fi
+            docker compose pull
+            docker compose up -d
+            docker image prune -f

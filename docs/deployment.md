@@ -115,18 +115,24 @@ CI green on staging → build images → push ghcr :<sha> and :staging → ssh d
 CI green on main    → build images → push ghcr :<sha> and :latest  → ssh prod VPS → pull, up -d
 ```
 
-Repository secrets: `STAGING_HOST`, `STAGING_USER`, `STAGING_SSH_KEY`, and the matching
-`PROD_*` set. Keys are per-host, so a compromised staging key does not reach production.
+Secrets are scoped to GitHub Environments named `staging` and `production`, so both
+environments use the same three names and the workflow needs no branching logic:
+`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. Keys are per-host, so a compromised
+staging key does not reach production. Giving `production` a required reviewer later
+is a settings change, not a workflow change.
 
 ## Rollback
 
 Images are tagged with the commit SHA, so rolling back is picking an older one:
 
 ```bash
-IMAGE_TAG=<previous-sha> docker compose up -d
+cd /opt/fitmybike
+sed -i 's|^IMAGE_TAG=.*|IMAGE_TAG=<previous-sha>|' .env
+docker compose pull && docker compose up -d
 ```
 
-Set `IMAGE_TAG` in `.env` to make it stick across restarts. Note this rolls back **code
+Writing it into `.env` rather than passing it inline is what makes it survive a reboot —
+otherwise the stack comes back on whatever `latest` points at. Note this rolls back **code
 only** — a migration that has already run stays applied. Prisma migrations here are
 additive, but a destructive one would need restoring from a backup, which staging does
 not have.
