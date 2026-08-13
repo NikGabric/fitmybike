@@ -101,7 +101,9 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           # Set DEPLOY_HOST_FINGERPRINT to pin the host key. Without it the action
           # accepts any key, so whoever answers on DEPLOY_HOST gets a session with
-          # your deploy in it. Generate with: ssh-keyscan -t ed25519 <host>
+          # your deploy in it. It wants a SHA256: fingerprint, not a known_hosts
+          # line, so ssh-keyscan alone gives the wrong format. On the box:
+          #   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
           fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
           envs: SHA,GHCR_TOKEN,GHCR_USER
           script: |
@@ -137,14 +139,33 @@ jobs:
             # fails in the entrypoint leaves the API crash-looping under
             # `restart: unless-stopped` while Caddy and nginx keep serving the SPA
             # quite happily, and the deploy would report success.
+            #
+            # This must go through the public hostname over HTTPS. `curl localhost`
+            # does NOT work: once SITE_ADDRESS is an https:// address, Caddy answers
+            # every port-80 request with a 308 to HTTPS whatever the Host header, and
+            # `curl -fsS` neither follows redirects nor fails on 3xx — so it exits 0
+            # against a completely dead backend and this gate silently checks nothing.
+            # It passes locally only because the dry run sets SITE_ADDRESS=:80.
+            #
+            # --resolve pins the name to this box, so the check does not depend on the
+            # server being able to resolve its own public DNS. Port 443 is hardcoded
+            # because a server must publish 443 — see docs/deployment.md.
+            APP_HOST=$(grep '^APP_URL=' .env | cut -d/ -f3)
+            if [ -z "$APP_HOST" ]; then
+              echo "APP_URL is missing from /opt/fitmybike/.env — cannot verify the deploy"
+              exit 1
+            fi
+
             for i in $(seq 1 30); do
-              if curl -fsS localhost/api/health >/dev/null 2>&1; then
+              if curl -fsS --resolve "${APP_HOST}:443:127.0.0.1" \
+                   "https://${APP_HOST}/api/health" >/dev/null 2>&1; then
                 echo "healthy after $((i * 2))s"
                 break
               fi
               if [ "$i" -eq 30 ]; then
-                echo "API did not become healthy within 60s"
+                echo "API did not answer on https://${APP_HOST}/api/health within 60s"
                 docker compose logs --tail 50 api
+                docker compose logs --tail 20 caddy
                 exit 1
               fi
               sleep 2
