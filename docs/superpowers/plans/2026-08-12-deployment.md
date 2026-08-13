@@ -544,6 +544,55 @@ gh pr create --base staging --title "feat: deploy the staging stack over HTTPS" 
 
 **An agent cannot do this.** It needs a VPS, a domain, DNS control and GitHub repository settings. Run it yourself, in order.
 
+#### Creating the box
+
+Not a numbered step because it is provider-specific, but it comes before Step 1. Any VPS
+meeting these requirements works; the provider is not load-bearing.
+
+| Requirement | Why |
+| --- | --- |
+| **amd64** | `deploy.yml` sets no `platforms:` on either build, so images are built for the runner's architecture. An Arm box pulls images it cannot run, and the failure surfaces at runtime on the server rather than in CI. Arm is possible — `runs-on: ubuntu-24.04-arm` is free on public repositories — but it is a workflow change, not a drop-in. |
+| **4 GB RAM** | Postgres, the API, nginx and Caddy. 2 GB runs but leaves nothing spare. |
+| **40 GB disk** | The images carry the whole workspace including devDependencies, and the deploy prunes only images older than 336h. |
+| **Root SSH, ports 80/443 reachable** | The deploy is SSH-push, and ACME's HTTP challenge needs port 80 specifically. |
+| **Ubuntu 24.04** | What Step 2's Docker install assumes. |
+
+Whichever provider, two things at creation time:
+
+- **Your own SSH public key**, not the deploy key. The deploy key is separate and is added
+  in Step 5; a deploy should not share credentials with your own shell access.
+- **A firewall allowing 22, 80 and 443 only.** Ubuntu's ufw is inactive by default, so
+  without this every port is open — and the seeded demo data behind this host is reachable
+  by anyone who finds it. Some providers offer a firewall outside the box (Hetzner does);
+  where none exists, do it on the host after Step 2:
+
+  ```bash
+  sudo ufw default deny incoming && sudo ufw default allow outgoing
+  sudo ufw allow 22 && sudo ufw allow 80 && sudo ufw allow 443
+  sudo ufw enable
+  ```
+
+  Order matters: allow 22 *before* enabling, or ufw closes the session you are typing in.
+  Docker publishes ports by writing straight to iptables and bypasses ufw, but the only
+  published ports here are Caddy's 80 and 443, which are allowed anyway.
+
+Providers evaluated, August 2026, cheapest first:
+
+| Provider | Spec | Price | Notes |
+| --- | --- | --- | --- |
+| RackNerd | 2 vCPU / 3.5 GB / 65 GB | ~$32/year | US only; annual prepay; small host |
+| Contabo | 4 vCPU / 8 GB / ~100 GB | ~€4.50/mo | EU, monthly billing; check for a setup fee |
+| **netcup VPS Lite 1 G12s** | 2 vCPU / 4 GB / 80 GB SSD | **€4.88/mo incl. VAT** | **Chosen.** EU (Nuremberg/Vienna/Amsterdam), x86. The Lite line trades NVMe for SSD and caps bandwidth, neither of which this workload notices. Avoid the separate ARM line. |
+| netcup VPS 500 G12 | 2 vCPU / 4 GB / 128 GB NVMe | €5.91/mo incl. VAT | Same CPU and RAM as the Lite 1 for €1 more; the NVMe and full bandwidth buy nothing here. |
+| netcup VPS nano G11s | 2 vCPU / 2 GB / 60 GB | €3.08/mo incl. VAT | Would run it — nothing builds on the box, so steady state is well under 2 GB — but older generation and no headroom. Add 2 GB of swap if used. |
+| Hetzner CX23 | 2 vCPU / 4 GB / 40 GB | €5.49/mo excl. VAT | Best hardware, but stock and account verification both blocked this |
+
+Avoided: DigitalOcean, Vultr and Linode share an automated signup risk model that rejects
+accounts outright with no route through. PaaS (Fly, Railway, Render) is ruled out by the
+single-origin topology — see "Topology" in `docs/deployment.md`.
+
+Note the server's public IPv4 — Step 1 needs it.
+
 - [ ] **Step 1: Point DNS at the box**
 
 Create an `A` record for the hostname you will use (for example `fit.example.com`) pointing at the VPS's public IP. Verify before continuing — Caddy cannot get a certificate for a name that does not resolve to it:
@@ -553,6 +602,10 @@ dig +short fit.example.com
 ```
 
 Expected: the VPS IP, and nothing else.
+
+Prefer a subdomain that says what the box is — `demo.` or `staging.` — and leave the apex
+and `app.` free. Staging and production are separate hosts, and the name chosen here ends
+up in `APP_URL`, `SITE_ADDRESS` and a Let's Encrypt certificate.
 
 - [ ] **Step 2: Install Docker on the VPS**
 
@@ -629,7 +682,14 @@ In the repository: **Settings → Environments → New environment → `staging`
 | `DEPLOY_HOST` | the VPS IP or hostname |
 | `DEPLOY_USER` | the SSH user |
 | `DEPLOY_SSH_KEY` | contents of `~/.ssh/fitmybike-staging` (the **private** key) |
-| `DEPLOY_HOST_FINGERPRINT` | output of `ssh-keyscan -t ed25519 <vps-ip>` |
+| `DEPLOY_HOST_FINGERPRINT` | `SHA256:…`, read off the box via the provider console (see below) |
+
+Get the fingerprint on the VPS itself — `ssh-keyscan` emits a `known_hosts` line, which
+is not what the action parses:
+
+```bash
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+```
 
 The fingerprint pins the server's host key. Without it the SSH step accepts whatever key
 it is offered, so anyone who can answer on `DEPLOY_HOST` — via DNS or a reassigned IP —

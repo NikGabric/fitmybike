@@ -53,7 +53,10 @@ origin would have to be given up.
 
 ## Prerequisites
 
-- A VPS with Docker and the compose plugin. A Hetzner CX22 or equivalent is oversized.
+- A VPS with Docker and the compose plugin, **amd64** — `deploy.yml` sets no `platforms:`,
+  so the images are built for the runner's architecture and an Arm box cannot run them.
+  2 vCPU, 4 GB of RAM and 40 GB of disk is comfortable. The provider is not load-bearing —
+  the plan's Task 5 lists the ones evaluated.
 - A domain, with an **A record pointing at the VPS before first boot**. Caddy cannot get
   a certificate for a name that does not resolve to it.
 - Nothing else. The deploy logs the host into GHCR with the workflow's own token, so the
@@ -144,7 +147,16 @@ required reviewer later is a settings change, not a workflow change.
 
 `DEPLOY_HOST_FINGERPRINT` pins the server's host key. Without it the SSH step accepts
 any key it is offered, so whoever manages to answer on `DEPLOY_HOST` receives a session
-with the deploy key in it. Generate with `ssh-keyscan -t ed25519 <host>`.
+with the deploy key in it.
+
+The action wants a `SHA256:…` fingerprint, **not** a `known_hosts` line — `ssh-keyscan`
+alone emits the wrong thing and the deploy fails host key verification. Read it off the
+box itself, over the provider's console rather than over SSH, since trusting whatever
+answers on the network is the attack this is meant to stop:
+
+```bash
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+```
 
 The deploy also refreshes `compose.yaml` and the `Caddyfile` on the server from the
 commit being deployed. Without that, a change to either would deploy nowhere and warn
