@@ -561,20 +561,34 @@ Whichever provider, two things at creation time:
 
 - **Your own SSH public key**, not the deploy key. The deploy key is separate and is added
   in Step 5; a deploy should not share credentials with your own shell access.
-- **A firewall allowing 22, 80 and 443 only.** Ubuntu's ufw is inactive by default, so
-  without this every port is open — and the seeded demo data behind this host is reachable
-  by anyone who finds it. Some providers offer a firewall outside the box (Hetzner does);
-  where none exists, do it on the host after Step 2:
+- **A firewall allowing 22, 80 and 443 only.** Without one every port is open, and the
+  seeded demo data behind this host is reachable by anyone who finds it.
+
+  **Prefer the provider's firewall over ufw where one exists** (netcup and Hetzner both
+  have one). Docker publishes ports by writing directly to iptables, ahead of ufw's
+  chains, so ufw never sees traffic to a published port. A filter outside the VM cannot
+  be bypassed that way. SSH must stay open to `*` — the deploy comes from GitHub-hosted
+  runners, whose addresses range widely.
+
+  netcup's is stateful **for TCP only**. Outbound TCP return traffic is handled
+  automatically, but UDP has no connection tracking, so a restrictive incoming policy
+  needs explicit rules for UDP source 53 (DNS) and source 123 (NTP) or those replies are
+  dropped. A broken NTP is the quiet one: the clock drifts and Caddy's certificate
+  validation starts failing weeks later. There is no lockout warning, so verify the
+  port 22 rule and open a second session before trusting it.
+
+  Where no provider firewall exists, use ufw on the host — installing it first, since
+  minimal images omit it:
 
   ```bash
+  sudo apt update && sudo apt install -y ufw
   sudo ufw default deny incoming && sudo ufw default allow outgoing
   sudo ufw allow 22 && sudo ufw allow 80 && sudo ufw allow 443
   sudo ufw enable
   ```
 
   Order matters: allow 22 *before* enabling, or ufw closes the session you are typing in.
-  Docker publishes ports by writing straight to iptables and bypasses ufw, but the only
-  published ports here are Caddy's 80 and 443, which are allowed anyway.
+  Do not run both — two firewalls is two places to misconfigure.
 
 Providers evaluated, August 2026, cheapest first:
 
@@ -629,10 +643,23 @@ docker ps
 
 - [ ] **Step 3: Create the deploy directory and its three files**
 
-The server holds no source. On the VPS:
+**This step requires the deployment PR to be merged into `staging` first.** It downloads
+`compose.yaml` and the `Caddyfile` from that branch, and until the merge the `Caddyfile`
+does not exist there and `compose.yaml` has no `caddy` service — you get a 404 and a
+stack with no TLS. Merging early is safe: nothing deploys until `deploy.yml` reaches
+`main` in Step 7.
+
+The server holds no source. Create the directory from an account with sudo, then hand it
+to the deploy user — the deploy rewrites `IMAGE_TAG` in `.env` with `sed -i` on every run
+and fails on a root-owned file:
 
 ```bash
-sudo mkdir -p /opt/fitmybike && sudo chown "$USER" /opt/fitmybike
+sudo mkdir -p /opt/fitmybike && sudo chown -R deploy:deploy /opt/fitmybike
+```
+
+Then, **as `deploy`**:
+
+```bash
 cd /opt/fitmybike
 curl -fsSLO https://raw.githubusercontent.com/NikGabric/fitmybike/staging/compose.yaml
 curl -fsSLO https://raw.githubusercontent.com/NikGabric/fitmybike/staging/Caddyfile
@@ -640,12 +667,18 @@ curl -fsSLO https://raw.githubusercontent.com/NikGabric/fitmybike/staging/Caddyf
 
 - [ ] **Step 4: Write the server's .env**
 
-Still on the VPS, in `/opt/fitmybike/.env`. Generate the password rather than choosing one:
+Still on the VPS, in `/opt/fitmybike/.env`, **as the `deploy` user**. Generate the
+passwords rather than choosing them.
+
+`POSTGRES_PASSWORD` must be **hex, not base64**. `compose.yaml` interpolates it into
+`DATABASE_URL` as `postgresql://user:PASSWORD@db:5432/...`, and base64's `/` truncates
+the URL's authority section — Prisma then fails to connect with an error pointing at the
+database rather than at the password.
 
 ```bash
 cat > .env <<EOF
 POSTGRES_USER=fitmybike
-POSTGRES_PASSWORD=$(openssl rand -base64 24)
+POSTGRES_PASSWORD=$(openssl rand -hex 24)
 POSTGRES_DB=fitmybike
 NODE_ENV=production
 PORT=3000
@@ -684,11 +717,27 @@ In the repository: **Settings → Environments → New environment → `staging`
 | `DEPLOY_SSH_KEY` | contents of `~/.ssh/fitmybike-staging` (the **private** key) |
 | `DEPLOY_HOST_FINGERPRINT` | `SHA256:…`, read off the box via the provider console (see below) |
 
-Get the fingerprint on the VPS itself — `ssh-keyscan` emits a `known_hosts` line, which
-is not what the action parses:
+Get the fingerprint on the VPS itself, and read the **ECDSA** key — not Ed25519:
 
 ```bash
-ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub | cut -d' ' -f2
+```
+
+Two ways to get this wrong, both of which fail the deploy with an unhelpful error:
+
+- `ssh-keyscan` emits a `known_hosts` line, which the action does not parse. It wants the
+  `SHA256:…` form above.
+- A stock Ubuntu host has RSA, ECDSA and Ed25519 host keys. OpenSSH prefers Ed25519, so
+  that feels like the one to read — but the action wraps `drone-ssh`, written in Go, and
+  Go's `x/crypto/ssh` orders `ecdsa-sha2-nistp256` ahead of `ssh-ed25519`. The server
+  presents ECDSA; pinning Ed25519 fails with `ssh: handshake failed: ssh: host key
+  fingerprint mismatch`.
+
+To confirm which key a Go-order client is offered, no credentials needed:
+
+```bash
+ssh -v -o HostKeyAlgorithms=ecdsa-sha2-nistp256,ssh-ed25519 \
+    -o BatchMode=yes nobody@<vps-ip> exit 2>&1 | grep 'Server host key'
 ```
 
 The fingerprint pins the server's host key. Without it the SSH step accepts whatever key
@@ -700,9 +749,17 @@ Do not create a `production` environment yet. Production is blocked on organizat
 - [ ] **Step 7: Promote `deploy.yml` to `main`**
 
 The deploy workflow cannot fire while it exists only on `staging` — GitHub dispatches
-`workflow_run` from the default branch's copy, and the default branch is `main`. Merge
-the deployment PR into `staging`, then immediately open and merge the promotion PR
-`staging` → `main` using a **merge commit, not a squash**.
+`workflow_run` from the default branch's copy, and the default branch is `main`. The
+deployment PR must already be merged into `staging` (Step 3 depends on it too); now open
+and merge the promotion PR `staging` → `main` using a **merge commit, not a squash**.
+
+Two repository settings block this, and neither announces itself:
+
+- **`allow_merge_commit` must be enabled.** With only squash merging on, the promotion is
+  simply unmergeable. Both are needed: squash for feature PRs, merge commit for promotions.
+- **`delete_branch_on_merge` must be off for this merge**, or turn on branch protection
+  for `staging` first. The promotion PR's head branch *is* `staging`, so auto-delete
+  removes it on merge. Restore the setting afterwards so feature branches still clean up.
 
 That promotion deploys nothing: the job is gated to `head_branch == 'staging'` while
 production is blocked. It exists only to put the workflow where GitHub will look for it.
@@ -711,20 +768,39 @@ Nothing needs doing about GHCR visibility — the deploy logs the host in with t
 workflow's own token, so the packages stay private and the box holds no registry
 credential.
 
-- [ ] **Step 8: Merge and watch the first deploy**
+- [ ] **Step 8: Trigger and watch the first deploy**
 
-Merge the Task 4 PR into `staging`. CI runs, then Deploy runs. Watch both in the Actions tab.
+The merge into `staging` happened before `deploy.yml` reached `main`, so its CI run could
+not have fired a deploy. Re-run that CI run (`Actions → CI → the `staging` push run →
+Re-run all jobs`) to produce a fresh completed run for `workflow_run` to trigger from.
+Every merge after this one deploys by itself.
+
+Expect two Deploy runs to appear and show **skipped** — those are the promotion's CI runs
+on `main` being correctly rejected by the `head_branch == 'staging'` gate. Note that a
+Deploy run always reports `main` as its own branch, because `workflow_run` workflows
+execute from the default branch; the gate reads a different field from the event payload.
 
 - [ ] **Step 9: Seed the database, once**
 
-On the VPS, after the first deploy succeeds:
+On the VPS, after the first deploy succeeds. **Verify the password reached the container
+before seeding:**
 
 ```bash
 cd /opt/fitmybike
+docker compose exec -T api printenv SEED_PASSWORD   # must match .env
 docker compose exec api pnpm seed
+docker compose exec -T db psql -U fitmybike -d fitmybike -c 'select email, role from users;'
 ```
 
-This is a one-time bootstrap, not a deploy step. It creates the demo organizations and the accounts, using the `SEED_PASSWORD` from `.env`.
+That check is load-bearing. The seed's upsert carries `passwordHash` in its `create`
+branch only, so accounts created with the wrong password keep it permanently — re-seeding
+does not correct it, and the only remedy is dropping the Postgres volume. Do that by name;
+`docker compose down -v` would also discard `caddy_data` and the certificate with it.
+
+This is a one-time bootstrap, not a deploy step. It creates the demo organizations and the
+accounts, using the `SEED_PASSWORD` from `.env`. Until it runs, the `users` table is empty
+and every login reports "invalid email or password" — the API does not distinguish an
+unknown account from a wrong one.
 
 - [ ] **Step 10: Verify the deployment end to end**
 

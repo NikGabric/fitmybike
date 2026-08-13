@@ -90,23 +90,38 @@ Caddy to nginx is internal to the compose network.
 
 ## First deploy
 
-```bash
-docker compose pull
-docker compose up -d
-```
+**Do not bring the stack up by hand on a new box.** The images do not exist until the
+pipeline has built and pushed them, and the GHCR packages are private, so an
+unauthenticated `docker compose pull` fails on `unauthorized` either way. The first
+deploy is the workflow's job. Leave the stack down until it has run once.
+
+`docker compose pull && docker compose up -d` on the server is for recovery and rollback,
+once images exist — see [Rollback](#rollback).
 
 Migrations need no step of their own: the API entrypoint runs `prisma migrate deploy`
 before the server accepts traffic, on every boot and every restart. It only applies
 committed migrations and never resets anything.
 
-Then seed once, to create the demo organizations and an account to log in with:
+Once the first deploy is green, seed once, to create the demo organizations and an
+account to log in with. **Check the password reached the container first:**
 
 ```bash
+docker compose exec -T api printenv SEED_PASSWORD   # must match .env
 docker compose exec api pnpm seed
 ```
 
+That check is not optional caution. The seed's upsert carries `passwordHash` in its
+`create` branch only, so an account created with the wrong password keeps it forever —
+re-seeding will not correct it, and the only fix is dropping the database volume. Note
+also that `docker compose down -v` would take `caddy_data` with it, discarding the
+certificate and risking a Let's Encrypt rate limit; remove the Postgres volume by name
+instead.
+
 This is manual and deliberately not part of the pipeline — it is a one-time bootstrap,
 not a deploy step. Log in as `owner@fitmybike.test` with the `SEED_PASSWORD` you set.
+An empty `users` table and a login that reports "invalid email or password" is what a
+missing seed looks like; the API does not distinguish an unknown account from a wrong
+password.
 
 **Staging only.** Production must never be seeded: the seed creates fictional studios
 and customers, and its accounts have a password you have written down somewhere.
@@ -149,14 +164,36 @@ required reviewer later is a settings change, not a workflow change.
 any key it is offered, so whoever manages to answer on `DEPLOY_HOST` receives a session
 with the deploy key in it.
 
-The action wants a `SHA256:…` fingerprint, **not** a `known_hosts` line — `ssh-keyscan`
-alone emits the wrong thing and the deploy fails host key verification. Read it off the
-box itself, over the provider's console rather than over SSH, since trusting whatever
-answers on the network is the attack this is meant to stop:
+Two things about that value, each of which fails the deploy on its own.
+
+**The format is a `SHA256:…` fingerprint, not a `known_hosts` line.** `ssh-keyscan` alone
+emits the latter.
+
+**It must be the fingerprint of the key type the client actually negotiates, and that is
+not the one you would expect.** A stock Ubuntu host offers three host keys — RSA, ECDSA
+and Ed25519. OpenSSH prefers Ed25519, so reading `ssh_host_ed25519_key.pub` looks right.
+But `appleboy/ssh-action` wraps `drone-ssh`, which is written in Go, and Go's
+`x/crypto/ssh` orders `ecdsa-sha2-nistp256` **ahead** of `ssh-ed25519`. The server
+therefore presents its ECDSA key, and pinning the Ed25519 one fails with
+`ssh: handshake failed: ssh: host key fingerprint mismatch`.
+
+So read the ECDSA key, on the box, via the provider's console rather than over SSH —
+trusting whatever answers on the network is the attack this pin exists to stop:
 
 ```bash
-ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub | cut -d' ' -f2
 ```
+
+To confirm which key a Go-order client is offered, without needing credentials:
+
+```bash
+ssh -v -o HostKeyAlgorithms=ecdsa-sha2-nistp256,ssh-ed25519 \
+    -o BatchMode=yes nobody@<host> exit 2>&1 | grep 'Server host key'
+```
+
+Removing the RSA and ECDSA host keys from `sshd_config` and leaving only Ed25519 also
+resolves this, permanently and with better hygiene, at the cost of an sshd edit on a box
+whose only other way in is the provider's console.
 
 The deploy also refreshes `compose.yaml` and the `Caddyfile` on the server from the
 commit being deployed. Without that, a change to either would deploy nowhere and warn
@@ -180,7 +217,7 @@ not have.
 
 ## Before production
 
-Production is not a deployment task away. Three things must exist first, and the first
+Production is not a deployment task away. Four things must exist first, and the first
 is a blocker rather than a nicety.
 
 1. **A way to create an organization.** There is no signup, no invitation flow and no
@@ -195,9 +232,17 @@ is a blocker rather than a nicety.
    phone numbers and dates of birth in an EU jurisdiction. Deleting a customer currently
    sets `deletedAt` and keeps the row forever, which is the right default for audit and
    the wrong one for an erasure request.
+4. **Rate limiting on login.** Nothing in `apps/api/src/` throttles authentication — no
+   `@nestjs/throttler`, no attempt counter, no lockout. Password guessing against a known
+   account is therefore unlimited, and this repository is public, so the seeded addresses
+   and the login route are published alongside it. On staging a generated `SEED_PASSWORD`
+   is the whole defence. Production accounts will have passwords people chose themselves,
+   which is a materially weaker assumption. Note this compounds with `session.ip` being
+   wrong under [Known limitations](#known-limitations): per-IP throttling cannot be built
+   correctly until `trust proxy` is set.
 
 Monitoring and log shipping are worth adding around the same time, but they are not
-gates in the way these three are.
+gates in the way these four are.
 
 ## Known limitations
 
