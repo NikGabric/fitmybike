@@ -58,8 +58,12 @@ integration tests manage their own separate database and need nothing.
 
 ## Workflow
 
-- **Never push to `main`.** Branch (`feat/`, `fix/`, `chore/`, `docs/`), open a PR, squash merge.
-  Branches are deleted on merge.
+- **Never push to `staging` or `main`.** Branch (`feat/`, `fix/`, `chore/`, `docs/`), open a PR,
+  squash merge. Branches are deleted on merge.
+- **Feature branches target `staging`, not `main`.** `staging` deploys to the demo box; `main`
+  deploys to production. Promotion is a PR from `staging` to `main` — and that one uses a **merge
+  commit, not a squash**, or the two branches diverge immediately and `main` ends up holding a
+  commit `staging` has never seen. See `docs/deployment.md`.
 - CI must be green before merge: lint, typecheck, contract check, unit, integration, e2e.
 - **After changing any shared Zod schema or controller signature, run `pnpm openapi` and commit
   the result.** `pnpm openapi:check` fails CI on a stale contract.

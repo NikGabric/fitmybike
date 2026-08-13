@@ -3,10 +3,11 @@ import { PrismaClient, type Prisma } from '@prisma/client';
 import { MEASUREMENT_DEFINITIONS } from '@fitmybike/shared';
 import * as argon2 from 'argon2';
 import { config as loadEnv } from 'dotenv';
+import { DEFAULT_SEED_PASSWORD, resolveSeedPassword } from './seed-password';
 
 loadEnv({ path: ['../../.env', '.env'], quiet: true });
 
-const DEFAULT_PASSWORD = 'changeme123';
+const DEFAULT_PASSWORD = resolveSeedPassword();
 
 const connectionString = process.env['DATABASE_URL'];
 if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -280,8 +281,11 @@ async function main(): Promise<void> {
 
   console.log(`\nLog in with any of:`);
   for (const org of ORGS) {
-    console.log(`  ${org.owner.email} / ${DEFAULT_PASSWORD}   (OWNER, ${org.name})`);
-    if (org.fitter) console.log(`  ${org.fitter.email} / ${DEFAULT_PASSWORD}   (FITTER, ${org.name})`);
+    // Only echo the password when it is the well-known development default.
+    // Printing a real one would put a live credential in CI logs.
+    const shown = DEFAULT_PASSWORD === DEFAULT_SEED_PASSWORD ? DEFAULT_PASSWORD : '$SEED_PASSWORD';
+    console.log(`  ${org.owner.email} / ${shown}   (OWNER, ${org.name})`);
+    if (org.fitter) console.log(`  ${org.fitter.email} / ${shown}   (FITTER, ${org.name})`);
   }
 }
 

@@ -12,6 +12,12 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
+# This is a workspace-wide install, so it runs the API's `postinstall`
+# (`prisma generate`) even though the web image never touches Prisma. The schema
+# therefore has to be present here too — without it the install fails outright and
+# the web image cannot be built at all.
+COPY apps/api/prisma apps/api/prisma
+COPY apps/api/prisma.config.ts apps/api/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM deps AS build

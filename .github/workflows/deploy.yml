@@ -1,0 +1,180 @@
+name: Deploy
+
+# Triggered by CI finishing, not by the push itself: a push-triggered deploy would
+# ship commits whose tests never ran, which defeats the gate CI exists to provide.
+#
+# TWO THINGS ABOUT `workflow_run` THAT FAIL SILENTLY:
+#
+#  1. `workflows` must match the CI workflow's `name:` exactly.
+#  2. GitHub only dispatches `workflow_run` for the copy of this file on the
+#     DEFAULT branch (`main`). While this file exists only on `staging`, nothing
+#     fires — no run, no error. It must be promoted to `main` once before the
+#     first staging deploy works, and thereafter it is always main's copy that
+#     executes. Editing this file on `staging` changes nothing until promotion.
+#     See "Bootstrapping the pipeline" in docs/deployment.md.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [staging, main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # `types: [completed]` fires for failures too.
+    # `event == 'push'` excludes PR-triggered CI runs: the promotion PR from
+    # staging to main has head branch `staging`, and without this its CI run would
+    # trigger a full deploy from an unmerged pull request.
+    # `head_branch == 'staging'` is temporary — production is blocked on
+    # organization onboarding (see "Before production" in docs/deployment.md), and
+    # without this a merge to main would build images and then fail on an empty SSH
+    # host, leaving red on main for an environment that does not exist yet.
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'push'
+          && github.event.workflow_run.head_branch == 'staging' }}
+    runs-on: ubuntu-latest
+    # Secrets are scoped per environment, so both use the same names and production
+    # can be given a required reviewer without touching this file.
+    environment: ${{ github.event.workflow_run.head_branch == 'main' && 'production' || 'staging' }}
+
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+
+    steps:
+      # Check out the exact commit CI passed on, not the branch tip, which may
+      # already have moved.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nikgabric/fitmybike-api:${{ env.SHA }}
+            ghcr.io/nikgabric/fitmybike-api:${{ env.BRANCH }}
+          # Scoped per image: a shared cache scope makes the two builds overwrite
+          # each other's manifest and neither ever hits.
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/nikgabric/fitmybike-web:${{ env.SHA }}
+            ghcr.io/nikgabric/fitmybike-web:${{ env.BRANCH }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      # Pinned to a commit rather than a moving tag (v1.2.5): this step has the
+      # deploy private key in scope, so a retagged release would run
+      # attacker-controlled code with it.
+      - name: Deploy
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # Set DEPLOY_HOST_FINGERPRINT to pin the host key. Without it the action
+          # accepts any key, so whoever answers on DEPLOY_HOST gets a session with
+          # your deploy in it. It wants a SHA256: fingerprint, not a known_hosts
+          # line, so ssh-keyscan alone gives the wrong format. On the box:
+          #   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | cut -d' ' -f2
+          fingerprint: ${{ secrets.DEPLOY_HOST_FINGERPRINT }}
+          envs: SHA,GHCR_TOKEN,GHCR_USER
+          script: |
+            set -eu
+            cd /opt/fitmybike
+
+            # The infrastructure files come from the deployed commit, not from
+            # whenever the box was set up. Without this, a change to compose.yaml or
+            # the Caddyfile deploys nowhere and warns about nothing.
+            curl -fsSL -o compose.yaml \
+              "https://raw.githubusercontent.com/NikGabric/fitmybike/${SHA}/compose.yaml"
+            curl -fsSL -o Caddyfile \
+              "https://raw.githubusercontent.com/NikGabric/fitmybike/${SHA}/Caddyfile"
+
+            # GHCR packages are private until someone makes them public, and a new
+            # package is private on creation — so the very first deploy would die
+            # here on `unauthorized`. Logging in removes both that bootstrap problem
+            # and any need to publish the images.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            # Persist the tag so a reboot brings back the same version rather than
+            # whatever `latest` points at.
+            if grep -q '^IMAGE_TAG=' .env; then
+              sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${SHA}|" .env
+            else
+              echo "IMAGE_TAG=${SHA}" >> .env
+            fi
+
+            docker compose pull
+            docker compose up -d
+
+            # `up -d` returning 0 only means the containers started. A migration that
+            # fails in the entrypoint leaves the API crash-looping under
+            # `restart: unless-stopped` while Caddy and nginx keep serving the SPA
+            # quite happily, and the deploy would report success.
+            #
+            # This must go through the public hostname over HTTPS. `curl localhost`
+            # does NOT work: once SITE_ADDRESS is an https:// address, Caddy answers
+            # every port-80 request with a 308 to HTTPS whatever the Host header, and
+            # `curl -fsS` neither follows redirects nor fails on 3xx — so it exits 0
+            # against a completely dead backend and this gate silently checks nothing.
+            # It passes locally only because the dry run sets SITE_ADDRESS=:80.
+            #
+            # --resolve pins the name to this box, so the check does not depend on the
+            # server being able to resolve its own public DNS. Port 443 is hardcoded
+            # because a server must publish 443 — see docs/deployment.md.
+            APP_HOST=$(grep '^APP_URL=' .env | cut -d/ -f3)
+            if [ -z "$APP_HOST" ]; then
+              echo "APP_URL is missing from /opt/fitmybike/.env — cannot verify the deploy"
+              exit 1
+            fi
+
+            for i in $(seq 1 30); do
+              if curl -fsS --resolve "${APP_HOST}:443:127.0.0.1" \
+                   "https://${APP_HOST}/api/health" >/dev/null 2>&1; then
+                echo "healthy after $((i * 2))s"
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "API did not answer on https://${APP_HOST}/api/health within 60s"
+                docker compose logs --tail 50 api
+                docker compose logs --tail 20 caddy
+                exit 1
+              fi
+              sleep 2
+            done
+
+            # Old images keep their own :<sha> tag, so they are never dangling and a
+            # bare `prune -f` reclaims nothing. These images carry the whole
+            # workspace including devDependencies, so a small VPS fills up quickly.
+            docker image prune -af --filter 'until=336h'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}

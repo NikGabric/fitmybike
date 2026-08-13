@@ -1,0 +1,12 @@
+# One site block, two uses. Set SITE_ADDRESS to a hostname (https://fit.example.com)
+# and Caddy obtains and renews a certificate by itself; set it to ":80" and Caddy
+# serves plain HTTP, which is what makes a local dry run of the production stack
+# possible without a domain.
+#
+# It proxies to the nginx `web` container rather than to the API. nginx keeps serving
+# the SPA and proxying /api to http://api:3000, so the browser still sees exactly one
+# origin and no CORS is involved anywhere.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy web:80
+}

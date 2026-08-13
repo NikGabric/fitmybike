@@ -123,16 +123,22 @@ Organizations are invite-only: there is no public signup. Create one with the se
 ## Deployment
 
 ```bash
-cp .env.example .env    # set real POSTGRES_* values and APP_URL
+cp .env.example .env    # set real POSTGRES_*, APP_URL and SITE_ADDRESS
 docker compose up -d --build
 ```
 
-`web` (nginx) serves the built SPA on `${WEB_PORT:-8080}` and proxies `/api` to the `api`
-container. Postgres is not published to the host. Migrations run on API container start via
-`prisma migrate deploy`, which only applies committed migrations and never resets anything.
+Caddy is the only published service: it terminates TLS and proxies to `web` (nginx), which
+serves the built SPA and proxies `/api` to the `api` container. Neither `web` nor Postgres is
+published to the host. Migrations run on API container start via `prisma migrate deploy`, which
+only applies committed migrations and never resets anything.
 
-TLS is not included — put Caddy or your existing reverse proxy in front, and set `secure` cookies
-by running with `NODE_ENV=production` (already the default in the image).
+TLS is automatic. Set `SITE_ADDRESS` to a hostname and Caddy obtains and renews the certificate
+itself; set it to `:80` to run the production stack locally over plain HTTP. `SITE_ADDRESS` and
+`APP_URL` must always agree — and note that `NODE_ENV=production` (the image default) makes the
+session cookie `Secure`, so login only works over HTTPS.
+
+Deployment, including the CI pipeline and the server runbook, is documented in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Notable version pins
 
