@@ -3,20 +3,17 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { configureApp } from './configure-app';
 import type { Env } from './env';
 import { buildOpenApiDocument } from './openapi-document';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Everything lives under /api. In dev the Vite proxy forwards /api here; in prod
-  // Caddy does the same. Identical URLs in both, so there is nothing to configure
-  // per environment — and deliberately NO enableCors(), because the browser only
-  // ever talks to a single origin. Reaching for CORS means the topology broke.
-  app.setGlobalPrefix('api');
-  app.use(cookieParser());
+  // Shared with the integration tests, so they exercise the same app as production.
+  configureApp(app);
   app.enableShutdownHooks();
 
   SwaggerModule.setup('api/docs', app, buildOpenApiDocument(app));

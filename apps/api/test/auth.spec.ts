@@ -100,4 +100,26 @@ describe('auth', () => {
 
     await request(app.getHttpServer()).get('/api/auth/me').set('Cookie', cookie).expect(401);
   });
+
+  // Two proxies sit in front of the API in production — Caddy, then nginx — so the
+  // socket address is always the nginx container. The client address survives only in
+  // X-Forwarded-For, and Express ignores that header until `trust proxy` is set.
+  it('records the client address from X-Forwarded-For rather than the proxy', async () => {
+    const org = await seedOrg(prisma, { name: 'Forwarded Org' });
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      // What the API actually receives in production: Caddy appends the client, nginx
+      // appends Caddy.
+      .set('X-Forwarded-For', '203.0.113.7, 10.0.0.5')
+      .send({ email: org.email, password: TEST_PASSWORD })
+      .expect(200);
+
+    const session = await prisma.session.findFirst({
+      where: { userId: org.userId },
+      select: { ip: true },
+    });
+
+    expect(session?.ip).toBe('203.0.113.7');
+  });
 });
