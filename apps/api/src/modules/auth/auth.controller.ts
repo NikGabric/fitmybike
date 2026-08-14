@@ -1,10 +1,22 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import type { CurrentUser as CurrentUserPayload } from '@fitmybike/shared';
 import type { Request, Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -24,9 +36,13 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  // Only this route is throttled. A global guard would also cover the fit wizard, which
+  // autosaves on a debounce and on blur, and would refuse ordinary use.
+  @UseGuards(ThrottlerGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CurrentUserDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
+  @ApiTooManyRequestsResponse({ description: 'Too many login attempts from this address' })
   async login(
     @Body() dto: LoginDto,
     @Req() request: Request,

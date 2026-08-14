@@ -217,7 +217,7 @@ not have.
 
 ## Before production
 
-Production is not a deployment task away. Four things must exist first, and the first
+Production is not a deployment task away. Three things must exist first, and the first
 is a blocker rather than a nicety.
 
 1. **A way to create an organization.** There is no signup, no invitation flow and no
@@ -232,17 +232,13 @@ is a blocker rather than a nicety.
    phone numbers and dates of birth in an EU jurisdiction. Deleting a customer currently
    sets `deletedAt` and keeps the row forever, which is the right default for audit and
    the wrong one for an erasure request.
-4. **Rate limiting on login.** Nothing in `apps/api/src/` throttles authentication — no
-   `@nestjs/throttler`, no attempt counter, no lockout. Password guessing against a known
-   account is therefore unlimited, and this repository is public, so the seeded addresses
-   and the login route are published alongside it. On staging a generated `SEED_PASSWORD`
-   is the whole defence. Production accounts will have passwords people chose themselves,
-   which is a materially weaker assumption. The prerequisite is now in place —
-   `configure-app.ts` sets `trust proxy`, so `request.ip` is the real client and can be
-   keyed on.
-
 Monitoring and log shipping are worth adding around the same time, but they are not
-gates in the way these four are.
+gates in the way these three are.
+
+Login rate limiting *was* a fourth gate and is now closed: `login-rate-limit.ts` allows
+five attempts per address per minute, applied to `login` alone and returning `429`. It
+counts every attempt rather than only failures — counting failures would let someone
+holding one working credential probe the rest of the space for free.
 
 ## Known limitations
 
@@ -250,6 +246,10 @@ gates in the way these four are.
   sit in front of the API, so until `configure-app.ts` set `trust proxy` every session
   stored the nginx container's address rather than the visitor's. New sessions are
   correct; existing rows were never backfilled, and on staging are not worth backfilling.
+- **The login rate limit counts per process, not per deployment.** The throttler stores
+  its counters in memory. One API container makes the limit exact; running replicas would
+  multiply it by the replica count, since each keeps its own tally. That needs a shared
+  store rather than a lower number, and is a reason to think before scaling the API out.
 - **Seeded demo data is publicly reachable.** The customers are invented, but anyone who
   finds the hostname reaches a login page. `SEED_PASSWORD` is what stands between them
   and the demo records, so make it a real password.

@@ -63,10 +63,29 @@ export async function seedOrg(
   return { organizationId: organization.id, userId: user.id, email: user.email };
 }
 
+let clientCounter = 0;
+
+/**
+ * A distinct client address per call.
+ *
+ * Login is rate limited per address, and without this every test in a file would draw
+ * on one budget — the sixth would start failing with 429 purely because of the five
+ * before it, and which test broke would depend on execution order. Separate scenarios
+ * are separate clients.
+ *
+ * 192.0.2.0/24 is TEST-NET-1, reserved for documentation, so it can never collide with
+ * a real address. The second entry stands in for Caddy, matching what nginx forwards.
+ */
+function nextClientAddress(): string {
+  clientCounter += 1;
+  return `192.0.2.${(clientCounter % 253) + 1}, 10.0.0.5`;
+}
+
 /** Logs in and returns the raw Cookie header value for subsequent requests. */
 export async function login(app: INestApplication, email: string): Promise<string> {
   const response = await request(app.getHttpServer())
     .post('/api/auth/login')
+    .set('X-Forwarded-For', nextClientAddress())
     .send({ email, password: TEST_PASSWORD })
     .expect(200);
 

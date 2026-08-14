@@ -509,6 +509,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Too many login attempts from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     AuthController_logout: {

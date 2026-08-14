@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { LOGIN_RATE_LIMIT } from './modules/auth/login-rate-limit';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { AuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -24,6 +26,9 @@ import { MeasurementDefinitionsModule } from './modules/measurement-definitions/
       validate: validateEnv,
       cache: true,
     }),
+    // Registered globally so the guard can be injected, but the guard itself is applied
+    // only to `login` — see login-rate-limit.ts for why this is not an APP_GUARD.
+    ThrottlerModule.forRoot([LOGIN_RATE_LIMIT]),
     PrismaModule,
     AuthModule,
     HealthModule,
