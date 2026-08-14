@@ -4,17 +4,8 @@
  * actually loaded, that numbers really are tabular, that focus is visible,
  * and that dark mode really renders.
  */
-import { expect, test, type Page } from '@playwright/test';
-
-const OWNER = { email: 'owner@fitmybike.test', password: 'changeme123' };
-
-async function login(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.fill('#email', OWNER.email);
-  await page.fill('#password', OWNER.password);
-  await page.click('[data-testid="login-submit"]');
-  await expect(page).toHaveURL(/\/customers/);
-}
+import { expect, test } from '@playwright/test';
+import { login } from './support';
 
 test('measurement columns render with tabular figures', async ({ page }) => {
   await login(page);

@@ -1,16 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { testLastName } from './support';
-
-const OWNER = { email: 'owner@fitmybike.test', password: 'changeme123' };
-const OTHER_ORG_OWNER = { email: 'owner@alpinelab.test', password: 'changeme123' };
-
-async function login(page: Page, user: { email: string; password: string }): Promise<void> {
-  await page.goto('/login');
-  await page.fill('#email', user.email);
-  await page.fill('#password', user.password);
-  await page.click('[data-testid="login-submit"]');
-  await expect(page).toHaveURL(/\/customers/);
-}
+import { expect, test } from '@playwright/test';
+import { OTHER_ORG_OWNER, OWNER, login, testLastName } from './support';
 
 test('rejects bad credentials without leaving the login page', async ({ page }) => {
   await page.goto('/login');
